@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans Thai", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+}
+
+.app-root {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* จอคอม: แสดงผล 75% (เทียบเท่า browser zoom 75%) โดย browser ยังอยู่ที่ 100% */
+@media (min-width: 1024px) {
+  html,
+  body,
+  #app {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-root {
+    width: 133.333vw;
+    height: 133.333vh;
+    transform: scale(0.75);
+    transform-origin: top left;
+  }
+}
