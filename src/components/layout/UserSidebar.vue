@@ -2,6 +2,7 @@
 import { ref } from "vue"
 import {
   HomeIcon,
+  PencilIcon,
   PencilSquareIcon,
   DocumentDuplicateIcon,
   MagnifyingGlassIcon,
@@ -14,6 +15,8 @@ import {
   CheckCircleIcon,
   ChartBarIcon,
   ClipboardDocumentCheckIcon,
+  CalendarIcon,
+  HeartIcon,
 } from "@heroicons/vue/24/outline"
 import UserMenuItem from "../components/UserMenuItem.vue"
 import UserMenuGroup from "../components/UserMenuGroup.vue"
@@ -33,16 +36,17 @@ const menuGroups = [
     label: "ข้อมูลภาพรวม",
     items: [
       { id: "dashboard", icon: HomeIcon, label: "แดชบอร์ด" },
-      { id: "training-record", icon: ChartBarIcon, label: "สรุปข้อมูลการอบรม" },
+      // { id: "employee_training_records", icon: ChartBarIcon, label: "สรุปข้อมูลการอบรม" },
+      // { id: "training-record", icon: CalendarIcon, label: "รายชื่อการอบรม (แต่ละวัน)" },
       { id: "employee-courses", icon: ClipboardDocumentCheckIcon, label: "สรุปหลักสูตร & พนักงาน" },
     ]
   },
   {
     label: "การจัดการข้อมูล",
     items: [
+      { id: "employee-course-registration", icon: ClipboardDocumentListIcon, label: "แผนพนักงานหลักสูตร" },
       { id: "register-course", icon: PencilSquareIcon, label: "ลงทะเบียนหลักสูตร & พนักงาน" },
       { id: "course-list", icon: DocumentDuplicateIcon, label: "รายการหลักสูตร" },
-      { id: "employee-info", icon: UserGroupIcon, label: "ข้อมูลพนักงาน" },
     ]
   },
   {
@@ -50,11 +54,14 @@ const menuGroups = [
     items: [
       { id: "search", icon: CheckCircleIcon, label: "พนักงานที่ได้บัตแล้ว" },
       { id: "register-employee", icon: AcademicCapIcon, label: "พนักงานที่จบทุกหลักสูตร" },
+      { id: "employee-training", icon: ClipboardDocumentListIcon, label: "REหลักสูตร" },
+      // { id: "health-check", icon: HeartIcon, label: "หมดอายุตรวจสุขภาพ" },
     ]
   },
   {
     label: "ระบบ",
     items: [
+      { id: "employee-info", icon: UserGroupIcon, label: "ข้อมูลพนักงาน" },
       { id: "system-users", icon: UsersIcon, label: "ผู้ใช้ระบบ" },
       { id: "usage-logs", icon: ClipboardDocumentListIcon, label: "การบันทึกใช้งาน" },
     ]

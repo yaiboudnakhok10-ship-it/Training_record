@@ -5,12 +5,17 @@ import EmployeeView from '../views/EmployeeView.vue'
 import CoursesView from '../views/CoursesView.vue'
 import UserSystemView from '../views/UserSystemView.vue'
 import EmployeeTrainingView from '../views/Employee_trainingView.vue'
+import EmployeeTrainingRecordsView from '../views/employee_training_records.vue'
 import Status_cardView from '../views/Status_cardView.vue'
 import Status_coursesView from '../views/Status_coursesView.vue'
 import DashboardView from '../views/dashboardView.vue'
 import StudentView from '../views/StudentView.vue'
 import EmployeeCoursesView from '../views/employee_coursesView.vue'
 import LogView from '../views/LogView.vue'
+import ReView from '../views/ReView.vue'
+import EmployeeCourseRegistrationView from '../views/employee_course_registration.vue'
+import RegistrationView from '../views/registrationView.vue'
+import HealthCheckView from '../views/health_checkView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,6 +33,11 @@ const router = createRouter({
           path: '',
           name: 'dashboard',
           component: DashboardView
+        },
+        {
+          path: 'employee_training_records',
+          name: 'employee_training_records',
+          component: EmployeeTrainingRecordsView
         },
         {
           path: 'training-record',
@@ -55,6 +65,11 @@ const router = createRouter({
           component: EmployeeTrainingView
         },
         {
+          path: 'employee-training',
+          name: 'employee-training',
+          component: ReView
+        },
+        {
           path: 'search',
           name: 'search',
           component: Status_cardView
@@ -73,6 +88,21 @@ const router = createRouter({
           path: 'usage-logs',
           name: 'usage-logs',
           component: LogView
+        },
+        {
+          path: 'employee-course-registration',
+          name: 'employee-course-registration',
+          component: EmployeeCourseRegistrationView
+        },
+        {
+          path: 'registration-view',
+          name: 'registration-view',
+          component: RegistrationView
+        },
+        {
+          path: 'health-check',
+          name: 'health-check',
+          component: HealthCheckView
         }
       ]
     }

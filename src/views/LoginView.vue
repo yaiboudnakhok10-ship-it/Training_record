@@ -21,7 +21,14 @@ const handleLogin = async () => {
     Swal.fire({
       icon: 'warning',
       title: 'ข้อมูลไม่ครบถ้วน',
-      text: 'กรุณากรอกชื่อผู้ใช้'
+      text: 'กรุณากรอกชื่อผู้ใช้',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
     })
     return
   }
@@ -30,7 +37,14 @@ const handleLogin = async () => {
     Swal.fire({
       icon: 'warning',
       title: 'ข้อมูลไม่ครบถ้วน',
-      text: 'กรุณากรอกรหัสผ่าน'
+      text: 'กรุณากรอกรหัสผ่าน',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
     })
     return
   }
@@ -50,7 +64,14 @@ const handleLogin = async () => {
       Swal.fire({
         icon: 'error',
         title: 'เข้าสู่ระบบไม่สำเร็จ',
-        text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'
+        text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
       })
       return
     }
@@ -62,7 +83,14 @@ const handleLogin = async () => {
       Swal.fire({
         icon: 'error',
         title: 'เข้าสู่ระบบไม่สำเร็จ',
-        text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'
+        text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
       })
       return
     }
@@ -131,7 +159,13 @@ const handleLogin = async () => {
       title: 'เข้าสู่ระบบสำเร็จ',
       text: 'ยินดีต้อนรับ, ' + user.fullname,
       timer: 1500,
-      showConfirmButton: false
+      showConfirmButton: false,
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        icon: '!scale-75'
+      }
     })
 
     // นำทางไปที่หน้าหลัก
@@ -144,7 +178,14 @@ const handleLogin = async () => {
     Swal.fire({
       icon: 'error',
       title: 'เกิดข้อผิดพลาด',
-      text: 'ไม่สามารถเข้าสู่ระบบได้'
+      text: 'ไม่สามารถเข้าสู่ระบบได้',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
     })
   } finally {
     loading.value = false

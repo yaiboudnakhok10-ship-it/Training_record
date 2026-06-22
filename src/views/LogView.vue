@@ -35,7 +35,7 @@ const formatThaiDate = (dateStr) => {
   if (!dateStr) return ''
   try {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('th-TH', {
+    return date.toLocaleDateString('en-GB', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -92,7 +92,7 @@ onMounted(() => {
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="ค้นหาชื่อผู้ใช้, รหัสพนักงาน, การกระทำ..."
+        placeholder="ค้นหาชื่อผู้ใช้, รหัสล้านช้าง, การกระทำ..."
         class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
       />
     </div>

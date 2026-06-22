@@ -187,7 +187,7 @@ onMounted(() => {
                   {{ course.created_by || '-' }}
                 </div>
                 <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  {{ course.created_at ? new Date(course.created_at).toLocaleDateString('th-TH') : '-' }}
+                  {{ course.created_at ? new Date(course.created_at).toLocaleDateString('en-GB') : '-' }}
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">

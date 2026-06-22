@@ -71,6 +71,14 @@ const onLogout = async () => {
     showCancelButton: true,
     confirmButtonText: "ออกจากระบบ",
     cancelButtonText: "ยกเลิก",
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
   })
   if (!result.isConfirmed) return
 
@@ -129,6 +137,12 @@ const onLogout = async () => {
     title: "ออกจากระบบแล้ว",
     timer: 800,
     showConfirmButton: false,
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      icon: '!scale-75'
+    }
   })
   router.replace({ name: "login" })
 }

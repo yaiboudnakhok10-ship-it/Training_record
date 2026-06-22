@@ -51,6 +51,131 @@ execute FUNCTION update_updated_at ();
 CREATE TABLE courses (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     course_name TEXT NOT NULL,
-    recorded_by TEXT NOT NULL,
-    recorded_at TIMESTAMPTZ DEFAULT NOW()
+   created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+); 
+
+CREATE TABLE system_users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    emp_code TEXT UNIQUE NOT NULL,
+    fullname TEXT NOT NULL,
+    position TEXT,
+    department TEXT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    created_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+create table public.employee_training_records (
+     id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "group"         text,                       
+    id_tdl          text,                       
+    employee_id     text,                       
+    first_name      text,                       
+    last_name       text,                       
+    position        text,                       
+    department      text,                       
+    gender          text,                       
+    nationality     text,                       
+    status          text,                       
+    course_name     text,                       
+    training_date   date,                       
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+
+CREATE TABLE public.user_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  system_user_id uuid NOT NULL,
+  user_agent text,
+  ip_address inet,
+  action text NOT NULL,
+  old_value jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  view_mode text,
+  CONSTRAINT user_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT user_logs_system_user_id_fkey FOREIGN KEY (system_user_id) REFERENCES public.system_users(id)
+);
+
+
+CREATE TABLE employee_course_registration (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    group_name TEXT,                  -- กลุ่ม
+    tdl_code TEXT,                     -- รหัส TDL
+    full_name TEXT NOT NULL,           -- ชื่อ-นามสกุล
+    gender TEXT,                       -- เพศ
+    position TEXT,                     -- ตำแหน่ง
+    department TEXT,                   -- แผนก
+    nationality TEXT,                  -- สัญชาติ
+    status TEXT,                       -- สถานะ
+    course_name TEXT,                  -- หลักสูตร
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+
+
+CREATE TABLE employee_course_today (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    group_name TEXT,                  -- กลุ่ม
+    tdl_code TEXT,                     -- รหัส TDL
+    full_name TEXT NOT NULL,           -- ชื่อ-นามสกุล
+    gender TEXT,                       -- เพศ
+    position TEXT,                     -- ตำแหน่ง
+    department TEXT,                   -- แผนก
+    nationality TEXT,                  -- สัญชาติ
+    status TEXT,                       -- สถานะ
+    course_name TEXT,                  -- หลักสูตร
+    start_time TIME,                  -- เวลาเริ่ม
+    end_time TIME,                    -- เวลาเสร็จ
+    total_days INTEGER,               -- เรียนกี่วัน
+    study_date DATE,                  -- วันที่เรียน
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+
+create table public.re_courses (
+  id uuid primary key default gen_random_uuid(),
+  group_name text,              -- กลุ่ม
+  tdl_code text,                -- รหัสTDL
+  full_name text,                -- ชื่อ-นามสกุล
+  gender text,                   -- เพศ
+  position text,                 -- ตำแหน่ง
+  department text,               -- แผนก
+  nationality text,              -- สัญชาติ
+  status text,                   -- สถานะ
+  course_name text,              -- หลักสูตร
+  training_date date,             -- วันที่อบรม
+  re_date date,			-- REหลักสูตร
+  re_status text,                 -- สถานะ RE
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+
+
+
+
+create table public.health_check (
+  id uuid primary key default gen_random_uuid(),
+  group_name text,                 -- กลุ่ม
+  tdl_code text,                   -- รหัสTDL
+  full_name text,                  -- ชื่อ-นามสกุล
+  gender text,                     -- เพศ
+  position text,                   -- ตำแหน่ง
+  department text,                 -- แผนก
+  nationality text,                -- สัญชาติ
+  status text,                     -- สถานะ
+  checkup_date date,                -- วันที่ตรวจสุขภาพ
+  checkup_expire_date date,         -- วันที่หมดตรวจสุขภาพ
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );

@@ -193,7 +193,7 @@ const formatThaiDate = (dateStr) => {
   if (!dateStr) return '-'
   try {
     const d = new Date(dateStr)
-    return d.toLocaleDateString('th-TH')
+    return d.toLocaleDateString('en-GB')
   } catch (e) {
     return dateStr
   }
@@ -207,7 +207,7 @@ const exportToExcel = () => {
   const excelData = data.map(record => ({
     'กลุ่ม': record.group || '-',
     'รหัส TDL': record.id_tdl || '-',
-    'รหัสพนักงาน': record.employee_id || '-',
+    'รหัสล้านช้าง': record.employee_id || '-',
     'ชื่อ': record.first_name || '-',
     'นามสกุล': record.last_name || '-',
     'เพศ': record.gender || '-',
@@ -483,7 +483,7 @@ onMounted(() => {
                     <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
                       <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
                       <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
-                      <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสพนักงาน</th>
+                      <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
                       <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
                       <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
                       <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>

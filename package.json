@@ -10,7 +10,8 @@
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
@@ -33,6 +34,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.60.0",
     "eslint-plugin-vue": "~10.8.0",
+    "gh-pages": "^6.3.0",
     "globals": "^17.5.0",
     "npm-run-all2": "^8.0.4",
     "oxlint": "~1.60.0",

@@ -303,7 +303,7 @@ onMounted(() => {
                                 วันที่:
                                 {{
                                   course.training_date
-                                    ? new Date(course.training_date).toLocaleDateString('th-TH')
+                                    ? new Date(course.training_date).toLocaleDateString('en-GB')
                                     : '-'
                                 }}
                               </div>

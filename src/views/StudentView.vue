@@ -96,7 +96,7 @@ const formatThaiDate = (dateStr) => {
   if (!dateStr) return ''
   try {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('th-TH')
+    return date.toLocaleDateString('en-GB')
   } catch (e) {
     return dateStr
   }
@@ -269,7 +269,7 @@ onMounted(() => {
                   {{ record.course_name || '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                  {{ (record.training_date || record.created_at) ? new Date(record.training_date || record.created_at).toLocaleDateString('th-TH') : '-' }}
+                  {{ (record.training_date || record.created_at) ? new Date(record.training_date || record.created_at).toLocaleDateString('en-GB') : '-' }}
                 </td>
               </tr>
             </template>

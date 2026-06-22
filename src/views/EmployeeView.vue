@@ -91,7 +91,7 @@ const getEmployeeLaoName = (emp) => {
 }
 
 const getStartDate = (emp) => {
-  return emp.start_date ? new Date(emp.start_date).toLocaleDateString('th-TH') : '-'
+  return emp.start_date ? new Date(emp.start_date).toLocaleDateString('en-GB') : '-'
 }
 
 const getEmployeeStatus = (emp) => {

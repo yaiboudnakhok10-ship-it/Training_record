@@ -3,7 +3,8 @@ import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
 import { supabaseInternal } from '../server/supabase'
 import { supabaseExternal } from '../server/supabase_data'
 import { useAuth } from '../stores/auth'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ChevronDownIcon, ChevronRightIcon, EllipsisVerticalIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, PencilIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ChevronDownIcon, ChevronRightIcon, HeartIcon } from '@heroicons/vue/24/outline'
+import Swal from 'sweetalert2'
 
 const auth = useAuth()
 const records = ref([])
@@ -44,6 +45,8 @@ const formData = ref({
   gender: '',
   nationality: '',
   status: '',
+  date_health_check: '',
+  date_health_expiry: '',
   courses: []
 })
 
@@ -208,13 +211,184 @@ const fetchRecords = async () => {
     
     console.log('Raw data from database:', data)
     
+    // ตรวจสอบและอัปเดต status_re สำหรับ course ที่ถึงวัน re_date แล้ว
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const updates = []
+    const toArchive = []
+    const toHealthCheck = []
+    const processedIds = new Set()
+    data.forEach(record => {
+      let shouldArchive = false
+      let shouldUpdateStatus = false
+      
+      // Check if should update status_re
+      if (record.re_date && record.status_re !== 'Reแล้ว') {
+        const reDate = new Date(record.re_date)
+        reDate.setHours(0, 0, 0, 0)
+        
+        if (reDate <= today) {
+          shouldUpdateStatus = true
+          shouldArchive = true
+        }
+      }
+      
+      // Also check if status_re is already Reแล้ว
+      if (record.status_re === 'Reแล้ว') {
+        shouldArchive = true
+      }
+      
+      // Check if health check is expired
+      if (record.date_health_expiry) {
+        const expireDate = new Date(record.date_health_expiry)
+        expireDate.setHours(0, 0, 0, 0)
+        
+        if (expireDate <= today) {
+          toHealthCheck.push(record)
+        }
+      }
+      
+      if (shouldUpdateStatus) {
+        updates.push({
+          id: record.id,
+          status_re: 'Reแล้ว'
+        })
+      }
+      
+      if (shouldArchive) {
+        toArchive.push(record)
+      }
+    })
+    
+    // ทำการอัปเดตทีละรายการ
+    for (const update of updates) {
+      try {
+        await supabaseInternal
+          .from('employee_training_records')
+          .update({ status_re: 'Reแล้ว' })
+          .eq('id', update.id)
+        // อัปเดตข้อมูลใน array data ด้วย
+        const recordToUpdate = data.find(r => r.id === update.id)
+        if (recordToUpdate) {
+          recordToUpdate.status_re = 'Reแล้ว'
+        }
+      } catch (updateError) {
+        console.error('Error updating status_re:', updateError)
+      }
+    }
+    
+    // Archive records to re_courses
+    for (const record of toArchive) {
+      try {
+        console.log('Auto-archiving record:', record)
+        const fullName = record.first_name && record.last_name 
+          ? `${record.first_name} ${record.last_name}` 
+          : record.first_name || record.last_name || ''
+        
+        const reCourseData = {
+          group_name: record.group,
+          tdl_code: record.id_tdl,
+          full_name: fullName,
+          gender: record.gender,
+          position: record.position,
+          department: record.department,
+          nationality: record.nationality,
+          status: record.status,
+          course_name: record.course_name,
+          training_date: record.training_date,
+          re_date: record.re_date,
+          re_status: 'Reแล้ว'
+        }
+        
+        console.log('Inserting into re_courses:', reCourseData)
+        
+        const { data: insertedData, error: insertError } = await supabaseInternal
+          .from('re_courses')
+          .insert(reCourseData)
+          .select()
+        
+        if (insertError) {
+          console.error('Error inserting into re_courses:', insertError)
+          throw insertError
+        }
+        
+        console.log('Inserted successfully:', insertedData)
+        
+        // Delete from employee_training_records
+        const { error: deleteError } = await supabaseInternal
+          .from('employee_training_records')
+          .delete()
+          .eq('id', record.id)
+        
+        if (deleteError) {
+          console.error('Error deleting from employee_training_records:', deleteError)
+          throw deleteError
+        }
+      } catch (archiveError) {
+        console.error('Error archiving record:', archiveError)
+      }
+    }
+    
+    // Auto-save expired health check to health_check table
+    for (const record of toHealthCheck) {
+      try {
+        // Check if already exists in health_check
+        const { data: existingData, error: checkError } = await supabaseInternal
+          .from('health_check')
+          .select('id')
+          .eq('group_name', record.group)
+          .eq('tdl_code', record.id_tdl)
+          .eq('checkup_date', record.date_health_check)
+          .eq('checkup_expire_date', record.date_health_expiry)
+          .limit(1)
+        
+        if (checkError) throw checkError
+        
+        if (existingData && existingData.length > 0) {
+          continue // Skip if already exists
+        }
+        
+        const fullName = record.first_name && record.last_name 
+          ? `${record.first_name} ${record.last_name}` 
+          : record.first_name || record.last_name || ''
+        
+        const healthCheckData = {
+          group_name: record.group,
+          tdl_code: record.id_tdl,
+          full_name: fullName,
+          gender: record.gender,
+          position: record.position,
+          department: record.department,
+          nationality: record.nationality,
+          status: record.status,
+          checkup_date: record.date_health_check,
+          checkup_expire_date: record.date_health_expiry
+        }
+        
+        const { error: insertError } = await supabaseInternal
+          .from('health_check')
+          .insert(healthCheckData)
+        
+        if (insertError) throw insertError
+      } catch (healthError) {
+        console.error('Error saving health check:', healthError)
+      }
+    }
+    
+    // Remove archived records from data array
+    const remainingData = data.filter(record => {
+      return !toArchive.find(ar => ar.id === record.id)
+    })
+    
     // จัดกลุ่มข้อมูลตามพนักงาน
     const grouped = {}
-    data.forEach(record => {
+    remainingData.forEach(record => {
       const key = `${record.first_name}-${record.last_name}-${record.employee_id || record.id_tdl || 'no-id'}`
       if (!grouped[key]) {
         grouped[key] = {
           id: record.id, // ใช้ id ล่าสุด
+          record_ids: [record.id], // เก็บทุก id ของ record ในกลุ่มนี้
           group: record.group,
           id_tdl: record.id_tdl,
           employee_id: record.employee_id,
@@ -226,15 +400,21 @@ const fetchRecords = async () => {
           nationality: record.nationality,
           status: record.status,
           status_card: record.status_card,
+          date_health_check: record.date_health_check,
+          date_health_expiry: record.date_health_expiry,
           created_by: record.created_by,
           created_at: record.created_at,
           courses: []
         }
+      } else {
+        grouped[key].record_ids.push(record.id)
       }
       if (record.course_name || record.training_date) {
         grouped[key].courses.push({
           course_name: record.course_name,
           training_date: record.training_date,
+          re_date: record.re_date,
+          status_re: record.status_re,
           record_id: record.id,
           status: record.status_courses || record.status
         })
@@ -274,7 +454,9 @@ const openAddSidebar = () => {
     gender: '',
     nationality: '',
     status: '',
-    courses: [{ course_name: '', training_date: '', status: 'ยังไม่ผ่าน' }]
+    date_health_check: '',
+    date_health_expiry: '',
+    courses: [{ course_name: '', training_date: '', re_date: '', status: 'ผ่านแล้ว' }]
   }
   isSidebarOpen.value = true
 }
@@ -294,11 +476,13 @@ const openEditSidebar = (record, course = null) => {
     gender: record.gender || '',
     nationality: record.nationality || '',
     status: record.status || '',
+    date_health_check: record.date_health_check || '',
+    date_health_expiry: record.date_health_expiry || '',
     courses: course 
-      ? [{ course_name: course.course_name, training_date: course.training_date, record_id: course.record_id, status: course.status }]
+      ? [{ course_name: course.course_name, training_date: course.training_date, re_date: course.re_date, status_re: course.status_re, record_id: course.record_id, status: course.status }]
       : (record.courses && record.courses.length > 0 
-        ? record.courses.map(c => ({ course_name: c.course_name, training_date: c.training_date, status: c.status }))
-        : [{ course_name: '', training_date: '', status: '' }])
+        ? record.courses.map(c => ({ course_name: c.course_name, training_date: c.training_date, re_date: c.re_date, status_re: c.status_re, status: c.status }))
+        : [{ course_name: '', training_date: '', re_date: '', status_re: '', status: '' }])
   }
   // เติมค่า fullNameInput
   if (record.first_name || record.last_name) {
@@ -327,7 +511,9 @@ const openEditRowSidebar = (record) => {
     employee_id: record.employee_id || '',
     first_name: record.first_name,
     last_name: record.last_name,
-    status_card: record.status_card || ''
+    status_card: record.status_card || '',
+    date_health_check: record.date_health_check || '',
+    date_health_expiry: record.date_health_expiry || ''
   }
   editingRecord.value = null
   isEditingSingleCourse.value = false
@@ -344,7 +530,9 @@ const saveEditRow = async () => {
       .from('employee_training_records')
       .update({
         employee_id: editingRowRecord.value.employee_id || null,
-        status_card: editingRowRecord.value.status_card
+        status_card: editingRowRecord.value.status_card,
+        date_health_check: editingRowRecord.value.date_health_check || null,
+        date_health_expiry: editingRowRecord.value.date_health_expiry || null
       })
       .eq('first_name', editingRowRecord.value.first_name)
       .eq('last_name', editingRowRecord.value.last_name)
@@ -370,7 +558,26 @@ const saveEditRow = async () => {
 }
 
 const deleteCourse = async (record, course) => {
-  if (confirm(`คุณต้องการลบหลักสูตร "${course.course_name}" ใช่หรือไม่?`)) {
+  const result = await Swal.fire({
+    title: 'คุณแน่ใจหรือไม่?',
+    text: `คุณต้องการลบหลักสูตร "${course.course_name}" ใช่หรือไม่?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก',
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
+  })
+
+  if (result.isConfirmed) {
     try {
       if (course.record_id) {
         const { error } = await supabaseInternal
@@ -380,10 +587,129 @@ const deleteCourse = async (record, course) => {
         
         if (error) throw error
       }
+      
+      Swal.fire({
+        title: 'ลบสำเร็จ!',
+        text: 'หลักสูตรถูกลบเรียบร้อยแล้ว',
+        icon: 'success',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
+      
       fetchRecords()
     } catch (error) {
       console.error('Error deleting course:', error.message)
-      alert('เกิดข้อผิดพลาดในการลบหลักสูตร')
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการลบหลักสูตร',
+        icon: 'error',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
+    }
+  }
+}
+
+const archiveHealthCheck = async (record) => {
+  const result = await Swal.fire({
+    title: 'ย้ายข้อมูลไปหมดอายุตรวจสุขภาพ',
+    text: `คุณต้องการย้ายข้อมูล "${record.first_name} ${record.last_name}" ไปที่หน้าหมดอายุตรวจสุขภาพใช่หรือไม่?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'ใช่, ย้าย!',
+    cancelButtonText: 'ยกเลิก',
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
+  })
+
+  if (result.isConfirmed) {
+    try {
+      const fullName = record.first_name && record.last_name 
+        ? `${record.first_name} ${record.last_name}` 
+        : record.first_name || record.last_name || ''
+      
+      for (const recordId of record.record_ids) {
+        const { data: originalData, error: fetchError } = await supabaseInternal
+          .from('employee_training_records')
+          .select('*')
+          .eq('id', recordId)
+          .single()
+        
+        if (fetchError) throw fetchError
+        
+        const healthCheckData = {
+          group_name: originalData.group,
+          tdl_code: originalData.id_tdl,
+          full_name: fullName,
+          gender: originalData.gender,
+          position: originalData.position,
+          department: originalData.department,
+          nationality: originalData.nationality,
+          status: originalData.status,
+          checkup_date: originalData.date_health_check,
+          checkup_expire_date: originalData.date_health_expiry
+        }
+        
+        const { error: insertError } = await supabaseInternal
+          .from('health_check')
+          .insert(healthCheckData)
+        
+        if (insertError) throw insertError
+        
+        const { error: deleteError } = await supabaseInternal
+          .from('employee_training_records')
+          .delete()
+          .eq('id', recordId)
+        
+        if (deleteError) throw deleteError
+      }
+      
+      Swal.fire({
+        title: 'ย้ายสำเร็จ!',
+        text: 'ย้ายข้อมูลไปที่หน้าหมดอายุตรวจสุขภาพเรียบร้อยแล้ว',
+        icon: 'success',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
+      
+      fetchRecords()
+    } catch (error) {
+      console.error('Error archiving health check:', error.message)
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการย้ายข้อมูล: ' + error.message,
+        icon: 'error',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
     }
   }
 }
@@ -406,7 +732,9 @@ const closeSidebar = () => {
     gender: '',
     nationality: '',
     status: '',
-    courses: [{ course_name: '', training_date: '', status: 'ยังไม่ผ่าน' }]
+    date_health_check: '',
+    date_health_expiry: '',
+    courses: [{ course_name: '', training_date: '', re_date: '', status: 'ผ่านแล้ว' }]
   }
 }
 
@@ -416,7 +744,7 @@ const toggleDropdown = (event, id) => {
 }
 
 const addCourse = () => {
-  formData.value.courses.push({ course_name: '', training_date: '', status: 'ยังไม่ผ่าน' })
+  formData.value.courses.push({ course_name: '', training_date: '', re_date: '', status: 'ผ่านแล้ว' })
 }
 
 const removeCourse = (index) => {
@@ -450,7 +778,10 @@ const saveRecord = async () => {
         gender: formData.value.gender.trim() || null,
         nationality: formData.value.nationality.trim() || null,
         employee_id: formData.value.employee_id || null,
-        status_card: formData.value.status_card || null
+        status: formData.value.status || null,
+        status_card: formData.value.status_card || null,
+        date_health_check: formData.value.date_health_check || null,
+        date_health_expiry: formData.value.date_health_expiry || null
       };
       const dataToUpdateWithUpdatedBy = {
         ...dataToUpdateBase,
@@ -490,6 +821,8 @@ const saveRecord = async () => {
       const dataToUpdateBase = {
         course_name: course.course_name,
         training_date: course.training_date || null,
+        re_date: course.re_date || null,
+        status_re: course.status_re || null,
         status_courses: course.status || 'ยังไม่ผ่าน'
       };
       const dataToUpdateWithUpdatedBy = {
@@ -527,6 +860,8 @@ const saveRecord = async () => {
             gender: formData.value.gender.trim() || null,
             nationality: formData.value.nationality.trim() || null,
             status: formData.value.status.trim() || null,
+            date_health_check: formData.value.date_health_check || null,
+            date_health_expiry: formData.value.date_health_expiry || null,
             course_name: null,
             training_date: null
           };
@@ -559,9 +894,13 @@ const saveRecord = async () => {
               gender: formData.value.gender.trim() || null,
               nationality: formData.value.nationality.trim() || null,
               status: formData.value.status.trim() || null,
+              date_health_check: formData.value.date_health_check || null,
+              date_health_expiry: formData.value.date_health_expiry || null,
               status_courses: course.status || 'ยังไม่ผ่าน',
               course_name: course.course_name,
-              training_date: course.training_date || null
+              training_date: course.training_date || null,
+              re_date: course.re_date || null,
+              status_re: course.status_re || null
             };
             const dataToInsertWithCreatedBy = {
                 ...dataToInsertBase,
@@ -592,34 +931,83 @@ const saveRecord = async () => {
 }
 
 const deleteRecord = async (record) => {
-  if (confirm(`คุณต้องการลบข้อมูล "${record.first_name} ${record.last_name}" ใช่หรือไม่?`)) {
+  const result = await Swal.fire({
+    title: 'คุณแน่ใจหรือไม่?',
+    text: `คุณต้องการลบข้อมูล "${record.first_name} ${record.last_name}" ใช่หรือไม่?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก',
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
+  })
+
+  if (result.isConfirmed) {
     try {
-      let query = supabaseInternal
+      // Delete all records using their actual database IDs
+      const { error } = await supabaseInternal
         .from('employee_training_records')
         .delete()
-        .eq('first_name', record.first_name)
-        .eq('last_name', record.last_name)
-      
-      if (record.employee_id || record.id_tdl) {
-        query = query.eq('employee_id', record.employee_id || record.id_tdl)
-      } else {
-        query = query.is('employee_id', null)
-      }
-
-      const { error } = await query
+        .in('id', record.record_ids)
       
       if (error) throw error
+      
+      Swal.fire({
+        title: 'ลบสำเร็จ!',
+        text: 'ข้อมูลถูกลบเรียบร้อยแล้ว',
+        icon: 'success',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
+      
       fetchRecords()
     } catch (error) {
       console.error('Error deleting record:', error.message)
-      alert('เกิดข้อผิดพลาดในการลบข้อมูล')
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message,
+        icon: 'error',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
     }
   }
 }
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('th-TH')
+  const date = new Date(dateStr)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+const isHealthCheckExpired = (expireDateStr) => {
+  if (!expireDateStr) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const expireDate = new Date(expireDateStr)
+  expireDate.setHours(0, 0, 0, 0)
+  return expireDate <= today
 }
 
 const toggleExpand = (recordId) => {
@@ -671,7 +1059,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="ค้นหาชื่อ, นามสกุล, รหัสพนักงาน..."
+            placeholder="ค้นหาชื่อ, นามสกุล, รหัสล้านช้าง..."
             class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
           />
         </div>
@@ -768,7 +1156,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
                       {{ record.created_by || '-' }}
                     </div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">
-                      {{ record.created_at ? new Date(record.created_at).toLocaleString('th-TH') : '-' }}
+                      {{ record.created_at ? formatDate(record.created_at) : '-' }}
                     </div>
                   </td>
                   <td class="px-3 py-4 whitespace-nowrap">
@@ -780,11 +1168,11 @@ watch(() => formData.value.id_tdl, (newVal) => {
                                 <PencilSquareIcon class="h-4 w-4" />
                               </button>
               <button
-                @click.stop="deleteRecord(record)"
-                class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              >
-                <TrashIcon class="h-4 w-4" />
-              </button>
+                                @click.stop="deleteRecord(record)"
+                                class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              >
+                                <TrashIcon class="h-4 w-4" />
+                              </button>
                     </div>
                   </td>
                 </tr>
@@ -796,52 +1184,78 @@ watch(() => formData.value.id_tdl, (newVal) => {
                         <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
                           หลักสูตรที่เข้าฝึก ({{ record.courses?.length || 0 }} รายการ)
                         </h4>
+                        <div class="flex items-center gap-6 text-sm">
+                          <div class="flex items-center gap-2">
+                            <span class="font-semibold text-gray-700 dark:text-gray-300">ตรวจสุขภาพ:</span>
+                            <span class="text-gray-500 dark:text-gray-400">วันที่:</span>
+                            <span :class="[
+                              'font-medium',
+                              isHealthCheckExpired(record.date_health_expiry) ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                            ]">{{ formatDate(record.date_health_check) || '-' }}</span>
+                            <span class="text-gray-500 dark:text-gray-400 ml-3">หมดอายุ:</span>
+                            <span :class="[
+                              'font-medium',
+                              isHealthCheckExpired(record.date_health_expiry) ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                            ]">{{ formatDate(record.date_health_expiry) || '-' }}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div v-if="record.courses && record.courses.length > 0" class="space-y-2">
-                        <div 
-                          v-for="(course, index) in record.courses" 
-                          :key="course.record_id || index"
-                          class="bg-white dark:bg-gray-950 rounded-lg p-3 border border-gray-200 dark:border-gray-800"
-                        >
-                          <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                              <div>
-                                <div class="font-medium text-gray-900 dark:text-white">{{ course.course_name || '-' }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">วันที่: {{ formatDate(course.training_date) }}</div>
-                              </div>
-                              <div>
+                      <div v-if="record.courses && record.courses.length > 0" class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                          <thead>
+                            <tr class="bg-red-500 dark:bg-red-700 border-b border-gray-200 dark:border-gray-800">
+                              <th class="px-4 py-3 text-xs font-bold text-black dark:text-white uppercase tracking-wider">หลักสูตร</th>
+                              <th class="px-4 py-3 text-xs font-bold text-black dark:text-white uppercase tracking-wider">วันที่อบรม</th>
+                              <th class="px-4 py-3 text-xs font-bold text-black dark:text-white uppercase tracking-wider">สถานะ</th>
+                              <th class="px-4 py-3 text-xs font-bold text-black dark:text-white uppercase tracking-wider">REหลักสูตร</th>
+                              <th class="px-4 py-3 text-xs font-bold text-black dark:text-white uppercase tracking-wider">สถานะ RE</th>
+                              <th class="px-4 py-3 text-xs font-bold text-black dark:text-white uppercase tracking-wider">จัดการ</th>
+                            </tr>
+                          </thead>
+                          <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                            <tr
+                              v-for="(course, index) in record.courses"
+                              :key="course.record_id || index"
+                              class="bg-white dark:bg-gray-950 hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors"
+                            >
+                              <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">{{ course.course_name || '-' }}</td>
+                              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {{ formatDate(course.training_date) }}
+                              </td>
+                              <td class="px-4 py-3">
                                 <span :class="[
-                                  'px-2.5 py-1 rounded-full text-xs font-bold uppercase',
-                                  course.status === 'สำเร็จ' || course.status === 'ผ่านแล้ว' ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' :
-                                  'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                                  'text-xs font-bold uppercase',
+                                  course.status === 'สำเร็จ' || course.status === 'ผ่านแล้ว' ? 'text-green-600 dark:text-green-400' :
+                                  'text-yellow-600 dark:text-yellow-400'
                                 ]">
                                   {{ course.status === 'กำลังดำเนินการ' ? 'ยังไม่ผ่าน' : (course.status || 'ยังไม่ผ่าน') }}
                                 </span>
-                              </div>
-                            </div>
-                            <div class="flex items-center gap-2 relative">
-                              <button
-                                @click.stop="(e) => toggleDropdown(e, `course-${course.record_id}`)"
-                                class="p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                              >
-                                <EllipsisVerticalIcon class="h-5 w-5" />
-                              </button>
-                              <div v-if="openDropdownId === `course-${course.record_id}`"
-                                   class="absolute right-0 top-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 w-32">
-                                <button @click.stop="openEditSidebar(record, course); openDropdownId = null;"
-                                        class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2">
-                                  <PencilSquareIcon class="h-4 w-4" />
-                                  แก้ไข้
-                                </button>
-                                <button @click.stop="deleteCourse(record, course); openDropdownId = null;"
-                                        class="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2">
-                                  <TrashIcon class="h-4 w-4" />
-                                  ลบ
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                              </td>
+                              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {{ course.re_date ? formatDate(course.re_date) : '-' }}
+                              </td>
+                              <td class="px-4 py-3">
+                                <span :class="[
+                                  'text-xs font-bold uppercase',
+                                  course.status_re === 'Reแล้ว' ? 'text-blue-600 dark:text-blue-400' :
+                                  'text-gray-500 dark:text-gray-400'
+                                ]">
+                                  {{ course.status_re || 'ยังไม่Re' }}
+                                </span>
+                              </td>
+                              <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                  <button
+                                    @click.stop="deleteCourse(record, course)"
+                                    class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                  >
+                                    <TrashIcon class="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                       <div v-else class="text-sm text-gray-500 dark:text-gray-400 italic">
                         ยังไม่มีข้อมูลหลักสูตร
@@ -878,12 +1292,12 @@ watch(() => formData.value.id_tdl, (newVal) => {
           <!-- แบบฟอร์มสำหรับแก้ไข row (employee_id และ status_card) -->
           <template v-if="isEditingRow">
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รหัสพนักงาน</label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รหัสล้านช้าง</label>
               <input
                 v-model="editingRowRecord.employee_id"
                 type="text"
                 class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                placeholder="กรอกรหัสพนักงาน"
+                placeholder="กรอกรหัสล้านช้าง"
               />
             </div>
             <div>
@@ -896,6 +1310,22 @@ watch(() => formData.value.id_tdl, (newVal) => {
                 <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
                 <option value="ได้รับแล้ว">ได้รับแล้ว</option>
               </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่รับสวัสดิภาพ</label>
+              <input
+                v-model="editingRowRecord.date_health_check"
+                type="date"
+                class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่หมดอายุ</label>
+              <input
+                v-model="editingRowRecord.date_health_expiry"
+                type="date"
+                class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              />
             </div>
           </template>
 
@@ -922,13 +1352,21 @@ watch(() => formData.value.id_tdl, (newVal) => {
               />
             </div>
             <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">REหลักสูตร</label>
+              <input
+                v-model="formData.courses[0].re_date"
+                type="date"
+                class="w-full px-3 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              />
+            </div>
+            <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">สถานะ</label>
               <select
                 v-model="formData.courses[0].status"
                 class="w-full px-3 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               >
-                <option value="ยังไม่ผ่าน">ยังไม่ผ่าน</option>
                 <option value="ผ่านแล้ว">ผ่านแล้ว</option>
+                <option value="ยังไม่ผ่าน">ยังไม่ผ่าน</option>
               </select>
             </div>
           </template>
@@ -943,7 +1381,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
               type="text"
               @click="handleTdlInputClick"
               @input="showTdlDropdown = true"
-              placeholder="ค้นหารหัสพนักงาน..."
+              placeholder="ค้นหารหัสล้านช้าง..."
               class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
             <!-- Dropdown list -->
@@ -1027,12 +1465,14 @@ watch(() => formData.value.id_tdl, (newVal) => {
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">สัญชาติ</label>
-                <input
+                <select
                   v-model="formData.nationality"
-                  type="text"
                   class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                  placeholder="กรอกสัญชาติ"
-                />
+                >
+                  <option value="">เลือกสัญชาติ</option>
+                  <option value="Thai">Thai</option>
+                  <option value="Laos">Laos</option>
+                </select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">สถานะ</label>
@@ -1042,6 +1482,25 @@ watch(() => formData.value.id_tdl, (newVal) => {
                   readonly
                   class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                   placeholder="สถานะจะถูกตั้งค่าอัตโนมัติ"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่รับสวัสดิภาพ</label>
+                <input
+                  v-model="formData.date_health_check"
+                  type="date"
+                  class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่หมดอายุ</label>
+                <input
+                  v-model="formData.date_health_expiry"
+                  type="date"
+                  class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 />
               </div>
             </div>
@@ -1099,14 +1558,22 @@ watch(() => formData.value.id_tdl, (newVal) => {
                       class="w-full px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
                   </div>
+                  <div>
+                    <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1.5">REหลักสูตร</label>
+                    <input
+                      v-model="course.re_date"
+                      type="date"
+                      class="w-full px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    />
+                  </div>
                   <div v-if="course.record_id">
                     <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1.5">สถานะ</label>
                     <select
                       v-model="course.status"
                       class="w-full px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     >
-                      <option value="">ยังไม่ผ่าน</option>
                       <option value="ผ่านแล้ว">ผ่านแล้ว</option>
+                      <option value="ยังไม่ผ่าน">ยังไม่ผ่าน</option>
                       <option value="ไม่ผ่าน">ไม่ผ่าน</option>
                     </select>
                   </div>
