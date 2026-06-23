@@ -283,7 +283,18 @@ const clearForm = () => {
 
 const saveRecord = async () => {
   if (!formData.value.full_name.trim()) {
-    alert('กรุณากรอกชื่อ-นามสกุล')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณากรอกชื่อ-นามสกุล',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
 
@@ -329,9 +340,33 @@ const saveRecord = async () => {
 
     clearForm()
     fetchRecords()
+    
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'ข้อมูลถูกบันทึกเรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   } catch (error) {
     console.error('Error saving record:', error)
-    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message,
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 
@@ -422,7 +457,7 @@ onUnmounted(() => {
           @click="router.push({ name: 'registration-view' })"
           class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
         >
-          ขึ้นแผนวันที่
+          Calendar
         </button>
         <div>
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white">แผนพนักงานหลักสูตร</h1>

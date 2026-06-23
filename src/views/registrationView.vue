@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, ListBulletIcon } from '@heroicons/vue/24/outline'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 
@@ -25,7 +26,8 @@ const formData = ref({
   courseName: '',
   startTime: '',
   endTime: '',
-  days: ''
+  days: '',
+  attachments: [''] // ใช้ array สำหรับหลาย link
 })
 
 const monthNames = [
@@ -47,7 +49,7 @@ const currentMonth = computed(() => currentDate.value.getMonth())
 const filteredCourses = computed(() => {
   if (!courseSearchQuery.value) return courses.value
   const query = courseSearchQuery.value.toLowerCase()
-  return courses.value.filter(course => 
+  return courses.value.filter(course =>
     course.course_name?.toLowerCase().includes(query)
   )
 })
@@ -62,15 +64,15 @@ const firstDayOfMonth = computed(() => {
 
 const calendarDays = computed(() => {
   const days = []
-  
+
   for (let i = 0; i < firstDayOfMonth.value; i++) {
     days.push(null)
   }
-  
+
   for (let day = 1; day <= daysInMonth.value; day++) {
     days.push(day)
   }
-  
+
   return days
 })
 
@@ -101,9 +103,9 @@ const courseSchedules = ref([])
 
 const getCoursesForDay = (day) => {
   if (!day) return []
-  return courseSchedules.value.filter(course => 
-    course.date === day && 
-    course.month === currentMonth.value && 
+  return courseSchedules.value.filter(course =>
+    course.date === day &&
+    course.month === currentMonth.value &&
     course.year === currentYear.value
   )
 }
@@ -114,10 +116,6 @@ const getEmployeesForCourse = (courseName) => {
     const recordCourses = getRecordCourses(record)
     return recordCourses.includes(courseName)
   })
-}
-
-const getEmployeeById = (empId) => {
-  return records.value.find(record => record.id === empId)
 }
 
 const getRecordCourses = (record) => {
@@ -135,7 +133,7 @@ const fetchCourses = async () => {
       .from('courses')
       .select('*')
       .order('course_name')
-    
+
     if (error) throw error
     courses.value = data
   } catch (error) {
@@ -168,11 +166,13 @@ const openAddModal = (day) => {
     courseName: '',
     startTime: '',
     endTime: '',
-    days: ''
+    days: '',
+    attachments: ['']
   }
   showAddModal.value = true
 }
 
+// ใช้ plain object (ไม่ใช่ ref) เพื่อให้ใน script และ template ใช้ได้ตรงๆ
 const viewingCourse = ref(null)
 
 const openViewModal = (course) => {
@@ -186,10 +186,8 @@ const openViewDayModal = (day) => {
   viewDay.value = day
   const coursesForDay = getCoursesForDay(day)
   if (coursesForDay.length === 1) {
-    // มีหลักสูตรเดียว เปิดดูรายละเอียดเลย
     openViewModal(coursesForDay[0])
   } else {
-    // มีหลายหลักสูตร แสดงเป็นรายการให้เลือกก่อน
     selectedViewCourse.value = null
     viewingCourse.value = null
     showViewModal.value = true
@@ -201,37 +199,70 @@ const openEditModal = (course) => {
   selectedDay.value = course.date
   selectedCourse.value = course.courseName
   courseSearchQuery.value = ''
-  selectedEmployees.value = course.selectedEmployees || []
+  selectedEmployees.value = course.employees?.map(emp => emp.id) || []
+  // Load attachments as array (handle both single string and array)
+  let attachments = []
+  if (course.attachments && Array.isArray(course.attachments)) {
+    attachments = [...course.attachments]
+  } else if (course.attachment) {
+    attachments = [course.attachment]
+  } else {
+    attachments = ['']
+  }
   formData.value = {
     courseName: course.courseName,
     startTime: course.startTime || '',
     endTime: course.endTime || '',
-    days: course.days || ''
+    days: course.days || '',
+    attachments: attachments
   }
   showAddModal.value = true
 }
 
 const saveCourse = async () => {
   if (!formData.value.courseName.trim()) {
-    alert('กรุณาเลือกหลักสูตร')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณาเลือกหลักสูตร',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
 
   if (selectedEmployees.value.length === 0) {
-    alert('กรุณาเลือกพนักงานที่จะเรียน')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณาเลือกพนักงานที่จะเรียน',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
 
   try {
-    // สร้างวันที่ในรูปแบบ YYYY-MM-DD ตามวันที่ที่เลือกจริง (ไม่ผ่าน UTC conversion เพื่อกันวันที่เพี้ยน)
     const formattedDate = formatDateLocal(currentYear.value, currentMonth.value, selectedDay.value)
 
-    // ดึงข้อมูลพนักงานที่เลือกทั้งหมด
-    const selectedEmployeeData = getEmployeesForCourse(formData.value.courseName).filter(emp => 
+    const selectedEmployeeData = getEmployeesForCourse(formData.value.courseName).filter(emp =>
       selectedEmployees.value.includes(emp.id)
     )
 
-    // เตรียมข้อมูลที่จะบันทึกไป employee_course_today
+    // Filter out empty links and store as JSON string
+    const filteredAttachments = formData.value.attachments.filter(link => link.trim() !== '')
+    const attachmentToSave = filteredAttachments.length > 0 ? JSON.stringify(filteredAttachments) : null
+
     const recordsToInsert = selectedEmployeeData.map(emp => ({
       group_name: emp.group_name || null,
       tdl_code: emp.tdl_code || emp.employee_code || null,
@@ -245,15 +276,15 @@ const saveCourse = async () => {
       start_time: formData.value.startTime || null,
       end_time: formData.value.endTime || null,
       total_days: formData.value.days ? parseInt(formData.value.days) : null,
-      study_date: formattedDate
+      study_date: formattedDate,
+      attachment: attachmentToSave
     }))
 
-    // เตรียมข้อมูลที่จะบันทึกไป employee_training_records (status_courses)
     const trainingRecordsToInsert = selectedEmployeeData.map(emp => {
       const nameParts = (emp.full_name || emp.fullname || `${emp.firstname || ''} ${emp.lastname || ''}`.trim()).split(' ')
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
-      
+
       return {
         group: emp.group_name || null,
         id_tdl: emp.tdl_code || emp.employee_code || null,
@@ -266,39 +297,32 @@ const saveCourse = async () => {
         status: emp.status || null,
         course_name: formData.value.courseName,
         training_date: formattedDate,
-        status_courses: 'ผ่านแล้ว' // ตั้งค่าเริ่มต้นว่าผ่านแล้ว
+        status_courses: 'ผ่านแล้ว'
       }
     })
 
-    // บันทึกลง employee_course_today
     const { error: insertError } = await supabaseInternal
       .from('employee_course_today')
       .insert(recordsToInsert)
 
     if (insertError) throw insertError
 
-    // บันทึกลง employee_training_records
     const { error: trainingError } = await supabaseInternal
       .from('employee_training_records')
       .insert(trainingRecordsToInsert)
 
     if (trainingError) throw trainingError
 
-    // ลบหลักสูตรออกจาก employee_course_registration สำหรับพนักงานที่เลือก
     for (const emp of selectedEmployeeData) {
-      // 1. ดึงข้อมูลเดิมของพนักงานนี้
       const { data: existingRecord, error: fetchError } = await supabaseInternal
         .from('employee_course_registration')
         .select('*')
         .eq('id', emp.id)
-        .single()
+        .maybeSingle() // ✅ แก้จาก .single() เป็น .maybeSingle()
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = ไม่พบข้อมูล
-        continue
-      }
+      if (fetchError) continue
 
       if (existingRecord) {
-        // 2. เอาหลักสูตรที่มีอยู่ออกจากรายการ
         let remainingCourses = []
         if (existingRecord.courses && existingRecord.courses.length > 0) {
           remainingCourses = existingRecord.courses.filter(c => c !== formData.value.courseName)
@@ -307,7 +331,6 @@ const saveCourse = async () => {
           remainingCourses = courseList.filter(c => c !== formData.value.courseName)
         }
 
-        // 3. อัปเดตข้อมูล
         await supabaseInternal
           .from('employee_course_registration')
           .update({
@@ -318,7 +341,6 @@ const saveCourse = async () => {
       }
     }
 
-    // อัปเดตข้อมูลในหน้าจอ
     if (editingCourse.value) {
       const index = courseSchedules.value.findIndex(c => c.id === editingCourse.value.id)
       if (index !== -1) {
@@ -334,32 +356,88 @@ const saveCourse = async () => {
         date: selectedDay.value,
         month: currentMonth.value,
         year: currentYear.value,
+        studyDate: formattedDate,
         ...formData.value,
         employees: selectedEmployeeData
       })
     }
 
-    // โหลดข้อมูล records ใหม่เพื่ออัปเดตหน้าจอ
     await fetchRecords()
 
-    alert('บันทึกข้อมูลสำเร็จ!')
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'บันทึกข้อมูลสำเร็จ!',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     showAddModal.value = false
     selectedDay.value = null
     editingCourse.value = null
     selectedCourse.value = null
   } catch (error) {
     console.error('Error saving course:', error)
-    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message,
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 
 const deleteCourse = async (course) => {
-  if (confirm('คุณต้องการลบหลักสูตรนี้หรือไม่?')) {
-    try {
-      // สร้างวันที่สำหรับค้นหา ตรงตามวันที่จริง (ไม่ผ่าน UTC conversion)
-      const formattedDate = formatDateLocal(course.year, course.month, course.date)
+  const result = await Swal.fire({
+    title: 'คุณต้องการลบหลักสูตรนี้หรือไม่?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก',
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
+  })
 
-      // ดึงข้อมูลพนักงานที่จะต้องย้อนกลับ
+  if (result.isConfirmed) {
+    try {
+      // ✅ แก้: ใช้ studyDate จาก course โดยตรง ถ้าไม่มีค่อย query
+      let formattedDate = course.studyDate
+
+      if (!formattedDate && course.employees && course.employees.length > 0) {
+        // ✅ แก้: เปลี่ยนจาก .single() เป็น .limit(1) แล้วดึง [0]
+        const { data: rows, error: fetchError } = await supabaseInternal
+          .from('employee_course_today')
+          .select('study_date')
+          .eq('course_name', course.courseName)
+          .eq('tdl_code', course.employees[0].tdl_code)
+          .limit(1)
+
+        if (fetchError) throw fetchError
+        formattedDate = rows?.[0]?.study_date
+      }
+
+      if (!formattedDate) {
+        throw new Error('ไม่พบวันที่ของหลักสูตรนี้')
+      }
+
       const employeesToRestore = course.employees || []
 
       // 1. ลบจาก employee_course_today
@@ -382,11 +460,9 @@ const deleteCourse = async (course) => {
 
       // 3. ย้อนกลับหลักสูตรไป employee_course_registration
       for (const emp of employeesToRestore) {
-        // ค้นหาข้อมูลพนักงานใน records
         const record = records.value.find(r => r.id === emp.id || r.tdl_code === emp.tdl_code)
-        
+
         if (record) {
-          // ดึงข้อมูลเดิม
           let currentCourses = []
           if (record.courses && record.courses.length > 0) {
             currentCourses = [...record.courses]
@@ -394,12 +470,10 @@ const deleteCourse = async (course) => {
             currentCourses = record.course_name.split(/[,，]/).map(c => c.trim()).filter(c => c)
           }
 
-          // เพิ่มหลักสูตรกลับเข้าไปถ้ายังไม่มี
           if (!currentCourses.includes(course.courseName)) {
             currentCourses.push(course.courseName)
           }
 
-          // อัปเดตฐานข้อมูล
           await supabaseInternal
             .from('employee_course_registration')
             .update({
@@ -410,16 +484,36 @@ const deleteCourse = async (course) => {
         }
       }
 
-      // ลบจากหน้าจอ
       courseSchedules.value = courseSchedules.value.filter(c => c.id !== course.id)
-      
-      // โหลดข้อมูล records ใหม่
       await fetchRecords()
-      
-      alert('ลบข้อมูลสำเร็จ!')
+      showViewModal.value = false
+
+      Swal.fire({
+        title: 'ลบสำเร็จ!',
+        text: 'ลบข้อมูลสำเร็จ!',
+        icon: 'success',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
     } catch (error) {
       console.error('Error deleting course:', error)
-      alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message)
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message,
+        icon: 'error',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
     }
   }
 }
@@ -440,6 +534,165 @@ const toggleEmployee = (employeeId) => {
     selectedEmployees.value.splice(index, 1)
   } else {
     selectedEmployees.value.push(employeeId)
+  }
+}
+
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    Swal.fire({
+      title: 'คัดลอกสำเร็จ!',
+      text: 'ลิ้งค์ถูกคัดลอกไปยังคลิปบอร์ดแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
+  } catch (error) {
+    console.error('Error copying to clipboard:', error)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'ไม่สามารถคัดลอกลิ้งค์ได้',
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
+  }
+}
+
+const deleteEmployeeFromCourse = async (emp) => {
+  const result = await Swal.fire({
+    title: 'คุณต้องการลบพนักงานออกจากหลักสูตรนี้หรือไม่?',
+    text: `${emp.full_name} - ${emp.tdl_code}`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก',
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
+  })
+
+  if (!result.isConfirmed) return
+
+  try {
+    // ✅ แก้: ใช้ viewingCourse.value และเปลี่ยนจาก .single() เป็น .limit(1)
+    const { data: rows, error: fetchError } = await supabaseInternal
+      .from('employee_course_today')
+      .select('study_date')
+      .eq('course_name', viewingCourse.value.courseName)
+      .eq('tdl_code', emp.tdl_code)
+      .limit(1)
+
+    if (fetchError) throw fetchError
+
+    const formattedDate = rows?.[0]?.study_date
+
+    if (!formattedDate) {
+      throw new Error('ไม่พบวันที่ของพนักงานในหลักสูตรนี้')
+    }
+
+    // 1. ลบจาก employee_course_today
+    const { error: deleteTodayError } = await supabaseInternal
+      .from('employee_course_today')
+      .delete()
+      .eq('study_date', formattedDate)
+      .eq('course_name', viewingCourse.value.courseName)  // ✅ แก้: .value
+      .eq('tdl_code', emp.tdl_code)
+
+    if (deleteTodayError) throw deleteTodayError
+
+    // 2. ลบจาก employee_training_records
+    const { error: deleteTrainingError } = await supabaseInternal
+      .from('employee_training_records')
+      .delete()
+      .eq('training_date', formattedDate)
+      .eq('course_name', viewingCourse.value.courseName)  // ✅ แก้: .value
+      .eq('id_tdl', emp.tdl_code)
+
+    if (deleteTrainingError) throw deleteTrainingError
+
+    // 3. ย้อนกลับหลักสูตรไป employee_course_registration
+    const record = records.value.find(r => r.id === emp.id || r.tdl_code === emp.tdl_code)
+    if (record) {
+      let currentCourses = []
+      if (record.courses && record.courses.length > 0) {
+        currentCourses = [...record.courses]
+      } else if (record.course_name) {
+        currentCourses = record.course_name.split(/[,，]/).map(c => c.trim()).filter(c => c)
+      }
+
+      if (!currentCourses.includes(viewingCourse.value.courseName)) {  // ✅ แก้: .value
+        currentCourses.push(viewingCourse.value.courseName)
+      }
+
+      await supabaseInternal
+        .from('employee_course_registration')
+        .update({
+          course_name: currentCourses.join(', ') || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', record.id)
+    }
+
+    // อัปเดต courseSchedules ใน local state
+    const courseIndex = courseSchedules.value.findIndex(c => c.id === viewingCourse.value.id)  // ✅ แก้: .value
+    if (courseIndex !== -1) {
+      courseSchedules.value[courseIndex].employees = courseSchedules.value[courseIndex].employees.filter(e => e.id !== emp.id)
+
+      if (courseSchedules.value[courseIndex].employees.length === 0) {
+        courseSchedules.value.splice(courseIndex, 1)
+        showViewModal.value = false
+      } else {
+        // ✅ แก้: อัปเดต viewingCourse.value
+        viewingCourse.value = { ...courseSchedules.value[courseIndex] }
+      }
+    }
+
+    await fetchRecords()
+
+    Swal.fire({
+      title: 'ลบสำเร็จ!',
+      text: 'ลบพนักงานออกจากหลักสูตรเรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
+  } catch (error) {
+    console.error('Error deleting employee from course:', error)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการลบพนักงาน: ' + error.message,
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 
@@ -467,27 +720,45 @@ const fetchCourseSchedules = async () => {
 
     if (error) throw error
 
-    // จัดกลุ่มข้อมูลตามวันที่และหลักสูตร
     const groupedData = {}
     data.forEach(record => {
-      const studyDate = new Date(record.study_date)
-      const key = `${studyDate.getFullYear()}-${studyDate.getMonth()}-${studyDate.getDate()}-${record.course_name}`
-      
+      // ✅ แก้: parse วันที่แบบ local เพื่อกัน timezone shift
+      const dateParts = record.study_date.split('-')
+      const year = parseInt(dateParts[0])
+      const month = parseInt(dateParts[1]) - 1
+      const day = parseInt(dateParts[2])
+
+      const key = `${year}-${month}-${day}-${record.course_name}`
+
       if (!groupedData[key]) {
+        // Parse attachments from JSON string or use single string
+        let attachments = []
+        if (record.attachment) {
+          try {
+            attachments = JSON.parse(record.attachment)
+            if (!Array.isArray(attachments)) {
+              attachments = [record.attachment]
+            }
+          } catch (e) {
+            // If not valid JSON, treat as single string
+            attachments = [record.attachment]
+          }
+        }
         groupedData[key] = {
           id: `${key}-${Date.now()}`,
-          date: studyDate.getDate(),
-          month: studyDate.getMonth(),
-          year: studyDate.getFullYear(),
+          date: day,
+          month: month,
+          year: year,
+          studyDate: record.study_date,
           courseName: record.course_name,
           startTime: record.start_time,
           endTime: record.end_time,
           days: record.total_days,
-          employees: [] // เก็บข้อมูลพนักงานทั้งหมดเลย
+          attachments: attachments,
+          employees: []
         }
       }
-      
-      // เก็บข้อมูลพนักงานทั้งหมด
+
       groupedData[key].employees.push({
         id: record.id,
         group_name: record.group_name,
@@ -530,7 +801,7 @@ onUnmounted(() => {
           กลับไป
         </button>
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">แผนวันที่</h1>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Calendar</h1>
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">ดูแผนการงานตามวันที่</p>
         </div>
       </div>
@@ -545,11 +816,11 @@ onUnmounted(() => {
           >
             <ChevronLeftIcon class="w-5 h-5" />
           </button>
-          
+
           <h2 class="text-xl font-bold text-gray-900 dark:text-white">
             {{ monthNames[currentMonth] }} {{ currentYear }}
           </h2>
-          
+
           <button
             @click="nextMonth"
             class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -604,7 +875,7 @@ onUnmounted(() => {
                   </button>
                 </div>
               </div>
-              
+
               <div v-if="day" class="flex-1 overflow-y-auto mt-1">
                 <div v-if="getCoursesForDay(day).length === 0" class="h-full flex items-center justify-center text-center">
                   <span class="text-xs sm:text-sm text-gray-400 dark:text-gray-500 italic leading-tight">
@@ -630,6 +901,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Add/Edit Modal -->
     <div v-if="showAddModal" class="fixed inset-0 z-50">
       <div @click="showAddModal = false" class="absolute inset-0 bg-black/50"></div>
       <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-gray-950 shadow-xl transform transition-transform duration-300 ease-in-out">
@@ -697,7 +969,7 @@ onUnmounted(() => {
                 </div>
               </div>
             </div>
-            
+
             <div v-if="formData.courseName" class="mt-6">
               <div class="flex items-center justify-between mb-3">
                 <h4 class="text-sm font-bold text-gray-900 dark:text-white">
@@ -797,6 +1069,34 @@ onUnmounted(() => {
                 placeholder="เช่น 1"
               />
             </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Link</label>
+                <button
+                  @click="formData.attachments.push('')"
+                  class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  + เพิ่ม Link
+                </button>
+              </div>
+              <div class="space-y-2">
+                <div v-for="(link, index) in formData.attachments" :key="index" class="flex gap-2">
+                  <input
+                    v-model="formData.attachments[index]"
+                    type="url"
+                    class="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="ใส่ลิ้งค์ที่นี่..."
+                  />
+                  <button
+                    v-if="formData.attachments.length > 1"
+                    @click="formData.attachments.splice(index, 1)"
+                    class="px-3 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-xl transition-colors"
+                  >
+                    x
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="p-4 border-t border-gray-200 dark:border-gray-800 flex gap-3">
             <button
@@ -816,7 +1116,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- View Course Modal (ปรับให้กว้างขึ้นเป็นครึ่งจอ) -->
+    <!-- View Course Modal -->
     <div v-if="showViewModal" class="fixed inset-0 z-50">
       <div @click="showViewModal = false" class="absolute inset-0 bg-black/50"></div>
       <div class="absolute inset-0 bg-white dark:bg-gray-950 shadow-xl transform transition-transform duration-300 ease-in-out">
@@ -855,14 +1155,24 @@ onUnmounted(() => {
                 </div>
               </div>
             </div>
-            
+
             <!-- If single course selected, show details -->
             <div v-else-if="viewingCourse" class="space-y-6">
-              <!-- Course Info -->
               <div class="space-y-3">
-                <div class="flex">
-                  <span class="font-bold text-gray-800 dark:text-gray-200 w-36 flex-shrink-0">Course:</span>
-                  <span class="text-gray-900 dark:text-white">{{ viewingCourse.courseName }}</span>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center">
+                    <span class="font-bold text-gray-800 dark:text-gray-200 w-36 flex-shrink-0">Course:</span>
+                    <span class="text-gray-900 dark:text-white">{{ viewingCourse.courseName }}</span>
+                  </div>
+                  <button
+                    @click="deleteCourse(viewingCourse)"
+                    class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="ลบหลักสูตร"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
                 <div class="flex">
                   <span class="font-bold text-gray-800 dark:text-gray-200 w-36 flex-shrink-0">Schedule Date:</span>
@@ -877,7 +1187,7 @@ onUnmounted(() => {
                 <div class="flex">
                   <span class="font-bold text-gray-800 dark:text-gray-200 w-36 flex-shrink-0">Course Capacity:</span>
                   <span class="text-gray-900 dark:text-white">
-                    {{ viewingCourse.employees ? viewingCourse.employees.length : 0 }}
+                    {{ viewingCourse.employees ? viewingCourse.employees.length : 0 }} คน
                   </span>
                 </div>
                 <div class="flex">
@@ -885,6 +1195,27 @@ onUnmounted(() => {
                   <span class="text-gray-900 dark:text-white">
                     {{ viewingCourse.startTime && viewingCourse.endTime ? `${viewingCourse.startTime.slice(0, 5)}-${viewingCourse.endTime.slice(0, 5)}` : viewingCourse.time || '-' }}
                   </span>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-gray-800 dark:text-gray-200">Links:</span>
+                  </div>
+                  <div v-if="viewingCourse.attachments && viewingCourse.attachments.length > 0" class="space-y-2">
+                    <div v-for="(link, index) in viewingCourse.attachments" :key="index" class="flex items-center gap-2">
+                      <a :href="link" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 break-all flex-1">
+                        {{ link }}
+                      </a>
+                      <button
+                        @click="copyToClipboard(link)"
+                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+                      >
+                        คัดลอก
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else class="text-sm text-gray-500 dark:text-gray-400 italic">
+                    ไม่มีลิ้งค์
+                  </div>
                 </div>
               </div>
 
@@ -910,6 +1241,7 @@ onUnmounted(() => {
                           <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">แผนก</th>
                           <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">สัญชาติ</th>
                           <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">สถานะ</th>
+                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase w-10"></th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
@@ -926,6 +1258,17 @@ onUnmounted(() => {
                           <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.department || '-' }}</td>
                           <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.nationality || '-' }}</td>
                           <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.status || '-' }}</td>
+                          <td class="px-3 py-2 text-right">
+                            <button
+                              @click="deleteEmployeeFromCourse(emp)"
+                              class="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="ลบพนักงานออกจากหลักสูตร"
+                            >
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </td>
                         </tr>
                       </tbody>
                     </table>
@@ -934,10 +1277,10 @@ onUnmounted(() => {
               </div>
 
               <!-- Back button when viewing a single course -->
-              <div v-if="viewDay && getCoursesForDay(viewDay).length > 1">
+              <div v-if="viewDay && getCoursesForDay(viewDay).length > 1" class="mb-4">
                 <button
                   @click="selectedViewCourse = null; viewingCourse = null"
-                  class="w-full px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                  class="w-full px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg text-xs font-medium transition-colors"
                 >
                   กลับไปเลือกหลักสูตรอื่น
                 </button>

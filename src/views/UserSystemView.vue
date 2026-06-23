@@ -4,6 +4,7 @@ import { supabaseInternal } from '../server/supabase'
 import { supabaseExternal } from '../server/supabase_data'
 import { useAuth } from '../stores/auth'
 import { MagnifyingGlassIcon, PlusIcon, XMarkIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import Swal from 'sweetalert2'
 
 const auth = useAuth()
 const users = ref([])
@@ -174,27 +175,93 @@ const getSaveErrorMessage = (error) => {
 
 const saveUser = async () => {
   if (!formData.value.emp_code.trim()) {
-    alert('กรุณากรอกรหัสพนักงาน')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณากรอกรหัสพนักงาน',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
   if (!formData.value.fullname.trim()) {
-    alert('กรุณากรอกชื่อ-นามสกุล')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณากรอกชื่อ-นามสกุล',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
   if (!formData.value.username.trim()) {
-    alert('กรุณากรอกชื่อผู้ใช้')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณากรอกชื่อผู้ใช้',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
   if (!formData.value.password.trim()) {
-    alert('กรุณากรอกรหัสผ่าน')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณากรอกรหัสผ่าน',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
   if (isDuplicateEmpCode(formData.value.emp_code)) {
-    alert('รหัสพนักงานนี้มีในระบบแล้ว กรุณาใช้รหัสอื่น')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'รหัสพนักงานนี้มีในระบบแล้ว กรุณาใช้รหัสอื่น',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
   if (isDuplicateUsername(formData.value.username)) {
-    alert('ชื่อผู้ใช้นี้มีในระบบแล้ว กรุณาใช้ชื่อผู้ใช้อื่น')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'ชื่อผู้ใช้นี้มีในระบบแล้ว กรุณาใช้ชื่อผู้ใช้อื่น',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
 
@@ -216,9 +283,33 @@ const saveUser = async () => {
 
     closeSidebar()
     fetchUsers()
+    
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'เพิ่มผู้ใช้เรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   } catch (error) {
     console.error('Error saving user:', error.message)
-    alert(getSaveErrorMessage(error))
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: getSaveErrorMessage(error),
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 

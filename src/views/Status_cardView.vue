@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
 import { MagnifyingGlassIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '../stores/auth'
+import Swal from 'sweetalert2'
 
 const route = useRoute()
 const auth = useAuth()
@@ -92,9 +93,33 @@ const saveRemark = async () => {
     }
     
     closeSidebar()
+    
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'บันทึกหมายเหตุเรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   } catch (error) {
     console.error('Error saving remark:', error.message)
-    alert('เกิดข้อผิดพลาดในการบันทึกหมายเหตุ: ' + error.message)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการบันทึกหมายเหตุ: ' + error.message,
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 

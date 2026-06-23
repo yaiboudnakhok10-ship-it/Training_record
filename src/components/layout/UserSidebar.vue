@@ -44,7 +44,7 @@ const menuGroups = [
   {
     label: "การจัดการข้อมูล",
     items: [
-      { id: "employee-course-registration", icon: ClipboardDocumentListIcon, label: "แผนพนักงานหลักสูตร" },
+      { id: "employee-course-registration", icon: ClipboardDocumentListIcon, label: "กิจกรรมการจองฝึกอบรม" },
       { id: "register-course", icon: PencilSquareIcon, label: "ลงทะเบียนหลักสูตร & พนักงาน" },
       { id: "course-list", icon: DocumentDuplicateIcon, label: "รายการหลักสูตร" },
     ]

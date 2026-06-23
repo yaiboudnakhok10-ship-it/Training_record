@@ -969,9 +969,9 @@ const exportToExcel = () => {
         <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="closeModal"></div>
         
         <!-- Modal content -->
-        <div class="relative bg-white dark:bg-gray-950 rounded-2xl shadow-xl max-w-7xl w-[95vw] max-h-[85vh] overflow-hidden">
+        <div class="relative bg-white dark:bg-gray-950 rounded-2xl shadow-xl max-w-none w-[98vw] max-h-[95vh] overflow-hidden flex flex-col">
           <!-- Header -->
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
             <div>
               <h3 class="text-xl font-bold text-gray-900 dark:text-white">{{ modalTitle }}</h3>
               <p class="text-sm text-gray-500 dark:text-gray-400">จำนวน: {{ filteredModalRecords.length }} คน</p>
@@ -982,7 +982,7 @@ const exportToExcel = () => {
           </div>
           
           <!-- Search in Modal -->
-          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
             <div class="relative max-w-sm w-full">
               <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
@@ -997,9 +997,9 @@ const exportToExcel = () => {
           </div>
           
           <!-- Body -->
-          <div class="p-6 overflow-y-auto max-h-[55vh]">
-            <div class="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-              <div class="overflow-x-auto">
+          <div class="p-6 overflow-y-auto flex-1">
+            <div class="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden h-full">
+              <div class="overflow-x-auto h-full">
                 <table class="w-full text-left border-collapse">
                   <thead>
                     <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">

@@ -160,7 +160,6 @@ const onLogout = async () => {
     <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
       <UserHeader
         :title="pageTitle"
-        :user="headerUser"
         @toggle-sidebar="sidebarOpen = true"
         @logout="onLogout"
       />

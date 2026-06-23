@@ -3,7 +3,7 @@ import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
 import { supabaseInternal } from '../server/supabase'
 import { supabaseExternal } from '../server/supabase_data'
 import { useAuth } from '../stores/auth'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ChevronDownIcon, ChevronRightIcon, HeartIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, PencilIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ChevronDownIcon, ChevronRightIcon, HeartIcon, PaperClipIcon, DocumentIcon } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
 
 const auth = useAuth()
@@ -22,6 +22,11 @@ const tdlDropdownRef = ref(null)
 const isEditingRow = ref(false)
 const editingRowRecord = ref(null)
 const openDropdownId = ref(null)
+
+// อัปโหลดไฟล์แนบ
+const attachmentFile = ref(null) // ไฟล์ที่เลือกไว้ (ยังไม่อัปโหลด)
+const attachmentUploading = ref(false)
+const attachmentInputRef = ref(null)
 
 // คอมพิวท์สำหรับกรองพนักงานตามคำค้นหา
 const filteredEmployees = computed(() => {
@@ -47,10 +52,73 @@ const formData = ref({
   status: '',
   date_health_check: '',
   date_health_expiry: '',
+  attachment_url: '',
   courses: []
 })
 
 const fullNameInput = ref('')
+
+// เช็คว่าไฟล์แนบเป็นรูปภาพหรือไม่ (จากนามสกุลไฟล์ใน URL)
+const isImageAttachment = (url) => {
+  if (!url) return false
+  return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url)
+}
+
+// ดึงชื่อไฟล์จาก URL เพื่อแสดงผล
+const getAttachmentFileName = (url) => {
+  if (!url) return ''
+  try {
+    const parts = url.split('/')
+    const lastPart = parts[parts.length - 1]
+    return decodeURIComponent(lastPart.split('?')[0])
+  } catch {
+    return url
+  }
+}
+
+// เมื่อผู้ใช้เลือกไฟล์จาก input
+const handleAttachmentChange = (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    attachmentFile.value = file
+  }
+}
+
+// ลบไฟล์แนบที่เลือกไว้ (ก่อนบันทึก) หรือลบ URL เดิม (ถ้าไม่มีไฟล์ใหม่)
+const removeAttachment = () => {
+  attachmentFile.value = null
+  formData.value.attachment_url = ''
+  if (attachmentInputRef.value) {
+    attachmentInputRef.value.value = ''
+  }
+}
+
+// อัปโหลดไฟล์แนบขึ้น Supabase Storage bucket "imge" และคืนค่า public URL
+const uploadAttachment = async (file) => {
+  attachmentUploading.value = true
+  try {
+    const fileExt = file.name.split('.').pop()
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+    const filePath = `training_record/${Date.now()}_${safeName}`
+
+    const { error: uploadError } = await supabaseInternal.storage
+      .from('imge')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: publicUrlData } = supabaseInternal.storage
+      .from('imge')
+      .getPublicUrl(filePath)
+
+    return publicUrlData?.publicUrl || null
+  } finally {
+    attachmentUploading.value = false
+  }
+}
 
 const parseFullName = (name) => {
   if (!name) {
@@ -402,12 +470,17 @@ const fetchRecords = async () => {
           status_card: record.status_card,
           date_health_check: record.date_health_check,
           date_health_expiry: record.date_health_expiry,
+          attachment_url: record.attachment_url,
           created_by: record.created_by,
           created_at: record.created_at,
           courses: []
         }
       } else {
         grouped[key].record_ids.push(record.id)
+        // ถ้า record นี้มี attachment_url และตัวที่เก็บไว้ยังไม่มี ให้เติมเข้าไป
+        if (!grouped[key].attachment_url && record.attachment_url) {
+          grouped[key].attachment_url = record.attachment_url
+        }
       }
       if (record.course_name || record.training_date) {
         grouped[key].courses.push({
@@ -444,6 +517,7 @@ const openAddSidebar = () => {
   editingRecord.value = null
   tdlSearchQuery.value = ''
   fullNameInput.value = ''
+  attachmentFile.value = null
   formData.value = {
     group: '',
     id_tdl: '',
@@ -456,6 +530,7 @@ const openAddSidebar = () => {
     status: '',
     date_health_check: '',
     date_health_expiry: '',
+    attachment_url: '',
     courses: [{ course_name: '', training_date: '', re_date: '', status: 'ผ่านแล้ว' }]
   }
   isSidebarOpen.value = true
@@ -466,6 +541,7 @@ const openEditSidebar = (record, course = null) => {
   editingRowRecord.value = null
   editingRecord.value = record
   isEditingSingleCourse.value = !!course
+  attachmentFile.value = null
   formData.value = {
     group: record.group || '',
     id_tdl: record.id_tdl || '',
@@ -478,6 +554,7 @@ const openEditSidebar = (record, course = null) => {
     status: record.status || '',
     date_health_check: record.date_health_check || '',
     date_health_expiry: record.date_health_expiry || '',
+    attachment_url: record.attachment_url || '',
     courses: course 
       ? [{ course_name: course.course_name, training_date: course.training_date, re_date: course.re_date, status_re: course.status_re, record_id: course.record_id, status: course.status }]
       : (record.courses && record.courses.length > 0 
@@ -551,9 +628,32 @@ const saveEditRow = async () => {
     
     closeSidebar()
     fetchRecords()
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   } catch (error) {
     console.error('Error saving row:', error)
-    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message,
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 
@@ -722,6 +822,7 @@ const closeSidebar = () => {
   editingRowRecord.value = null
   fullNameInput.value = ''
   openDropdownId.value = null
+  attachmentFile.value = null
   formData.value = {
     group: '',
     id_tdl: '',
@@ -734,6 +835,7 @@ const closeSidebar = () => {
     status: '',
     date_health_check: '',
     date_health_expiry: '',
+    attachment_url: '',
     courses: [{ course_name: '', training_date: '', re_date: '', status: 'ผ่านแล้ว' }]
   }
 }
@@ -753,14 +855,60 @@ const removeCourse = (index) => {
   }
 }
 
+// ฟังก์ชันตรวจสอบข้อมูลในฟอร์ม "เพิ่ม/แก้ไขข้อมูลพนักงานทั้งหมด" ก่อนบันทึก
+// คืนค่าเป็น array ของชื่อฟิวด์ที่ยังป้อนข้อมูลไม่ครบ (ถ้าไม่มีอะไรขาดจะคืน array ว่าง)
+const validateForm = () => {
+  const missing = []
+
+  if (!fullNameInput.value.trim()) missing.push('ชื่อ-นามสกุล')
+  if (!formData.value.gender || !formData.value.gender.trim()) missing.push('เพศ')
+  if (!formData.value.nationality || !formData.value.nationality.trim()) missing.push('สัญชาติ')
+  if (!formData.value.status || !formData.value.status.trim()) missing.push('สถานะ')
+
+  // ตรวจสอบพากส่วนหลักสูตร - ทุกแถวต้องกรอกครบทุกช่อง
+  formData.value.courses.forEach((course, index) => {
+    const rowNumber = index + 1
+    if (!course.course_name || !course.course_name.trim()) {
+      missing.push(`หลักสูตร ${rowNumber} - ชื่อหลักสูตร`)
+    }
+    if (!course.training_date) {
+      missing.push(`หลักสูตร ${rowNumber} - วันที่ฝึกอบรม`)
+    }
+    if (!course.re_date) {
+      missing.push(`หลักสูตร ${rowNumber} - REหลักสูตร`)
+    }
+    if (course.record_id && (!course.status || !course.status.trim())) {
+      missing.push(`หลักสูตร ${rowNumber} - สถานะ`)
+    }
+  })
+
+  return missing
+}
+
 const saveRecord = async () => {
   console.log('auth.user value:', auth.user)
   // ตรวจสอบเฉพาะเมื่อไม่ใช่การแก้ไข单个 course
   if (!isEditingSingleCourse.value) {
     // อัปเดต first_name และ last_name ก่อนบันทึก
     updateNameFromInput()
-    if (!fullNameInput.value.trim()) {
-      alert('กรุณากรอกชื่อ-นามสกุล')
+
+    const missingFields = validateForm()
+    if (missingFields.length > 0) {
+      Swal.fire({
+        title: 'กรุณาป้อนข้อมูลให้ครบ!',
+        html: 'ยังป้อนข้อมูลไม่ครบในช่องต่อไปนี้:<br><br>' +
+          '<ul style="text-align:left; margin:0; padding-left:1.2em;">' +
+          missingFields.map(f => `<li>${f}</li>`).join('') +
+          '</ul>',
+        icon: 'warning',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs !text-left',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
       return
     }
   }
@@ -768,6 +916,31 @@ const saveRecord = async () => {
   // Get the correct username from auth.user
   const username = auth.user?.fullname || auth.user?.name || auth.user?.username || 'Unknown'
   console.log('Username to save:', username)
+
+  // อัปโหลดไฟล์แนบ (ถ้ามีการเลือกไฟล์ใหม่) ก่อนบันทึกข้อมูล
+  if (!isEditingSingleCourse.value && attachmentFile.value) {
+    try {
+      const uploadedUrl = await uploadAttachment(attachmentFile.value)
+      if (uploadedUrl) {
+        formData.value.attachment_url = uploadedUrl
+      }
+    } catch (uploadError) {
+      console.error('Error uploading attachment:', uploadError)
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: 'อัปโหลดไฟล์แนบไม่สำเร็จ: ' + uploadError.message,
+        icon: 'error',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
+      return
+    }
+  }
   
   try {
     if (editingRecord.value && !isEditingSingleCourse.value) {
@@ -781,7 +954,8 @@ const saveRecord = async () => {
         status: formData.value.status || null,
         status_card: formData.value.status_card || null,
         date_health_check: formData.value.date_health_check || null,
-        date_health_expiry: formData.value.date_health_expiry || null
+        date_health_expiry: formData.value.date_health_expiry || null,
+        attachment_url: formData.value.attachment_url || null
       };
       const dataToUpdateWithUpdatedBy = {
         ...dataToUpdateBase,
@@ -862,6 +1036,7 @@ const saveRecord = async () => {
             status: formData.value.status.trim() || null,
             date_health_check: formData.value.date_health_check || null,
             date_health_expiry: formData.value.date_health_expiry || null,
+            attachment_url: formData.value.attachment_url || null,
             course_name: null,
             training_date: null
           };
@@ -896,6 +1071,7 @@ const saveRecord = async () => {
               status: formData.value.status.trim() || null,
               date_health_check: formData.value.date_health_check || null,
               date_health_expiry: formData.value.date_health_expiry || null,
+              attachment_url: formData.value.attachment_url || null,
               status_courses: course.status || 'ยังไม่ผ่าน',
               course_name: course.course_name,
               training_date: course.training_date || null,
@@ -924,9 +1100,32 @@ const saveRecord = async () => {
 
     closeSidebar()
     fetchRecords()
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   } catch (error) {
     console.error('Error saving record:', error)
-    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message)
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message,
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 
@@ -1088,6 +1287,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">แผนก</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">สัญชาติ</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">สถานะ</th>
+              <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ไฟล์แนบ</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ผู้บันทึก</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">จัดการ</th>
             </tr>
@@ -1095,13 +1295,13 @@ watch(() => formData.value.id_tdl, (newVal) => {
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
             <template v-if="loading">
               <tr v-for="i in 3" :key="i" class="animate-pulse">
-                <td colspan="11" class="px-3 py-4">
+                <td colspan="12" class="px-3 py-4">
                   <div class="h-10 bg-gray-100 dark:bg-gray-900 rounded-lg w-full"></div>
                 </td>
               </tr>
             </template>
             <tr v-else-if="filteredRecords().length === 0" class="text-center">
-              <td colspan="11" class="px-3 py-12 text-gray-500 dark:text-gray-400 italic">
+              <td colspan="12" class="px-3 py-12 text-gray-500 dark:text-gray-400 italic">
                 ไม่พบข้อมูล
               </td>
             </tr>
@@ -1152,6 +1352,20 @@ watch(() => formData.value.id_tdl, (newVal) => {
                     </span>
                   </td>
                   <td class="px-3 py-4 whitespace-nowrap">
+                    <a
+                      v-if="record.attachment_url"
+                      :href="record.attachment_url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline text-xs font-medium"
+                      @click.stop
+                    >
+                      <PaperClipIcon class="h-4 w-4" />
+                      เปิดไฟล์
+                    </a>
+                    <span v-else class="text-xs text-gray-400">-</span>
+                  </td>
+                  <td class="px-3 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900 dark:text-white">
                       {{ record.created_by || '-' }}
                     </div>
@@ -1178,7 +1392,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
                 </tr>
                 <!-- ส่วนขยาย แสดงหลักสูตร -->
                 <tr v-if="expandedRecordId === record.id" class="bg-gray-50/30 dark:bg-gray-900/30">
-                  <td colspan="11" class="px-6 py-4">
+                  <td colspan="12" class="px-6 py-4">
                     <div class="space-y-2">
                       <div class="flex items-center justify-between mb-3">
                         <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -1312,7 +1526,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่รับสวัสดิภาพ</label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ตรวจสุขภาพ</label>
               <input
                 v-model="editingRowRecord.date_health_check"
                 type="date"
@@ -1488,7 +1702,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่รับสวัสดิภาพ</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ตรวจสุขภาพ</label>
                 <input
                   v-model="formData.date_health_check"
                   type="date"
@@ -1503,6 +1717,71 @@ watch(() => formData.value.id_tdl, (newVal) => {
                   class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 />
               </div>
+            </div>
+
+            <!-- ไฟล์แนบ (รองรับทั้งไฟล์และรูปภาพ) -->
+            <div class="pt-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ไฟล์แนบ</label>
+
+              <!-- ยังไม่มีไฟล์ -> แสดงปุ่มเลือกไฟล์ -->
+              <div v-if="!attachmentFile && !formData.attachment_url">
+                <label class="flex items-center justify-center gap-2 w-full px-4 py-3 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:border-indigo-400 hover:text-indigo-600 transition-all">
+                  <PaperClipIcon class="h-5 w-5" />
+                  <span>เลือกไฟล์หรือรูปภาพ</span>
+                  <input
+                    ref="attachmentInputRef"
+                    type="file"
+                    class="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    @change="handleAttachmentChange"
+                  />
+                </label>
+              </div>
+
+              <!-- เลือกไฟล์ใหม่ไว้แล้ว (ยังไม่อัปโหลด) -->
+              <div v-else-if="attachmentFile" class="flex items-center justify-between gap-3 px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/30">
+                <div class="flex items-center gap-2 min-w-0">
+                  <DocumentIcon class="h-5 w-5 text-indigo-500 flex-shrink-0" />
+                  <span class="text-sm text-gray-700 dark:text-gray-300 truncate">{{ attachmentFile.name }}</span>
+                  <span class="text-xs text-gray-400 flex-shrink-0">(ยังไม่อัปโหลด)</span>
+                </div>
+                <button
+                  @click="removeAttachment"
+                  type="button"
+                  class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex-shrink-0"
+                >
+                  <TrashIcon class="h-4 w-4" />
+                </button>
+              </div>
+
+              <!-- มี attachment_url เดิมอยู่แล้ว (ตอนแก้ไข) -->
+              <div v-else-if="formData.attachment_url" class="px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/30">
+                <div class="flex items-center justify-between gap-3">
+                  <a
+                    :href="formData.attachment_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex items-center gap-2 min-w-0 text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    <PaperClipIcon class="h-5 w-5 flex-shrink-0" />
+                    <span class="text-sm truncate">{{ getAttachmentFileName(formData.attachment_url) }}</span>
+                  </a>
+                  <button
+                    @click="removeAttachment"
+                    type="button"
+                    class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex-shrink-0"
+                  >
+                    <TrashIcon class="h-4 w-4" />
+                  </button>
+                </div>
+                <img
+                  v-if="isImageAttachment(formData.attachment_url)"
+                  :src="formData.attachment_url"
+                  class="mt-3 max-h-40 rounded-lg border border-gray-200 dark:border-gray-800"
+                />
+              </div>
+
+              <p v-if="attachmentUploading" class="text-xs text-indigo-500 mt-2">กำลังอัปโหลดไฟล์แนบ...</p>
             </div>
 
             <!-- หลักสูตร -->
@@ -1594,9 +1873,10 @@ watch(() => formData.value.id_tdl, (newVal) => {
             </button>
             <button
               @click="isEditingRow ? saveEditRow() : saveRecord()"
-              class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm"
+              :disabled="attachmentUploading"
+              class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors shadow-sm"
             >
-              {{ isEditingRow ? 'บันทึก' : (editingRecord ? 'บันทึกการแก้ไข' : 'เพิ่มบันทึก') }}
+              {{ attachmentUploading ? 'กำลังอัปโหลด...' : (isEditingRow ? 'บันทึก' : (editingRecord ? 'บันทึกการแก้ไข' : 'เพิ่มบันทึก')) }}
             </button>
           </div>
         </div>
@@ -1604,3 +1884,4 @@ watch(() => formData.value.id_tdl, (newVal) => {
     </div>
   </div>
 </template>
+

@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
 import { MagnifyingGlassIcon, ArrowLeftIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import Swal from 'sweetalert2'
+import { showSuccess, showError, showConfirm } from '../utils/sweetalert'
 
 const router = useRouter()
 
@@ -32,24 +32,12 @@ const fetchHealthRecords = async () => {
 }
 
 const deleteRecord = async (record) => {
-  const result = await Swal.fire({
-    title: 'คุณแน่ใจหรือไม่?',
-    text: `คุณต้องการลบข้อมูลของ ${record.full_name} ใช่หรือไม่?`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'ใช่, ลบเลย!',
-    cancelButtonText: 'ยกเลิก',
-    customClass: {
-      popup: '!p-3 !max-w-md',
-      title: '!text-base',
-      htmlContainer: '!text-xs',
-      confirmButton: '!px-3 !py-1.5 !text-xs',
-      cancelButton: '!px-3 !py-1.5 !text-xs',
-      icon: '!scale-75'
-    }
-  })
+  const result = await showConfirm(
+    'คุณแน่ใจหรือไม่?',
+    `คุณต้องการลบข้อมูลของ ${record.full_name} ใช่หรือไม่?`,
+    'ใช่, ลบเลย!',
+    'ยกเลิก'
+  )
 
   if (result.isConfirmed) {
     try {
@@ -60,34 +48,12 @@ const deleteRecord = async (record) => {
       
       if (error) throw error
       
-      Swal.fire({
-        title: 'ลบสำเร็จ!',
-        text: 'ข้อมูลถูกลบเรียบร้อยแล้ว',
-        icon: 'success',
-        customClass: {
-          popup: '!p-3 !max-w-md',
-          title: '!text-base',
-          htmlContainer: '!text-xs',
-          confirmButton: '!px-3 !py-1.5 !text-xs',
-          icon: '!scale-75'
-        }
-      })
+      await showSuccess('ลบสำเร็จ!', 'ข้อมูลถูกลบเรียบร้อยแล้ว')
       
       fetchHealthRecords()
     } catch (error) {
       console.error('Error deleting record:', error.message)
-      Swal.fire({
-        title: 'เกิดข้อผิดพลาด!',
-        text: 'เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message,
-        icon: 'error',
-        customClass: {
-          popup: '!p-3 !max-w-md',
-          title: '!text-base',
-          htmlContainer: '!text-xs',
-          confirmButton: '!px-3 !py-1.5 !text-xs',
-          icon: '!scale-75'
-        }
-      })
+      await showError('เกิดข้อผิดพลาด!', 'เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message)
     }
   }
 }

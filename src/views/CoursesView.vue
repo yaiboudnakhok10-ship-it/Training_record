@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { supabaseInternal } from '../server/supabase'
 import { useAuth } from '../stores/auth'
 import { MagnifyingGlassIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/solid'
+import Swal from 'sweetalert2'
 
 const auth = useAuth()
 const courses = ref([])
@@ -58,7 +59,18 @@ const closeSidebar = () => {
 
 const saveCourse = async () => {
   if (!courseName.value.trim()) {
-    alert('กรุณากรอกชื่อหลักสูตร')
+    Swal.fire({
+      title: 'แจ้งเตือน!',
+      text: 'กรุณากรอกชื่อหลักสูตร',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
     return
   }
 
@@ -85,14 +97,57 @@ const saveCourse = async () => {
 
     closeSidebar()
     fetchCourses()
+    
+    Swal.fire({
+      title: 'บันทึกสำเร็จ!',
+      text: 'บันทึกข้อมูลหลักสูตรเรียบร้อยแล้ว',
+      icon: 'success',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   } catch (error) {
     console.error('Error saving course:', error.message)
-    alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+    Swal.fire({
+      title: 'เกิดข้อผิดพลาด!',
+      text: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+      icon: 'error',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
   }
 }
 
 const deleteCourse = async (course) => {
-  if (confirm(`คุณต้องการลบหลักสูตร "${course.course_name}" ใช่หรือไม่?`)) {
+  const result = await Swal.fire({
+    title: 'คุณแน่ใจหรือไม่?',
+    text: `คุณต้องการลบหลักสูตร "${course.course_name}" ใช่หรือไม่?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก',
+    customClass: {
+      popup: '!p-3 !max-w-md',
+      title: '!text-base',
+      htmlContainer: '!text-xs',
+      confirmButton: '!px-3 !py-1.5 !text-xs',
+      cancelButton: '!px-3 !py-1.5 !text-xs',
+      icon: '!scale-75'
+    }
+  })
+
+  if (result.isConfirmed) {
     try {
       const { error } = await supabaseInternal
         .from('courses')
@@ -101,8 +156,33 @@ const deleteCourse = async (course) => {
 
       if (error) throw error
       fetchCourses()
+      
+      Swal.fire({
+        title: 'ลบสำเร็จ!',
+        text: 'ลบข้อมูลหลักสูตรเรียบร้อยแล้ว',
+        icon: 'success',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
     } catch (error) {
       console.error('Error deleting course:', error.message)
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด!',
+        text: 'เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message,
+        icon: 'error',
+        customClass: {
+          popup: '!p-3 !max-w-md',
+          title: '!text-base',
+          htmlContainer: '!text-xs',
+          confirmButton: '!px-3 !py-1.5 !text-xs',
+          icon: '!scale-75'
+        }
+      })
     }
   }
 }
