@@ -598,16 +598,29 @@ const exportToExcel = () => {
       </div>
       
       <!-- Date Filter Tabs -->
-      <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-        <button v-for="option in dateOptions" :key="option.id"
-                @click="dateFilter = option.id; updateDateRange()"
-                :class="[
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                  dateFilter === option.id
-                    ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                ]">
-          {{ option.label }}
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+          <button v-for="option in dateOptions" :key="option.id"
+                  @click="dateFilter = option.id; updateDateRange()"
+                  :class="[
+                    'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                    dateFilter === option.id
+                      ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  ]">
+            {{ option.label }}
+          </button>
+        </div>
+        
+        <!-- Employee Button -->
+        <button
+          @click="router.push({ name: 'employee-one' })"
+          class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm border border-blue-700"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          </svg>
+          พนักงานบุคคล
         </button>
       </div>
     </div>

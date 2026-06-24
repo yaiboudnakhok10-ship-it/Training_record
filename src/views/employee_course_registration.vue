@@ -726,10 +726,12 @@ onUnmounted(() => {
                 </tr>
                 <template v-else>
                   <template v-for="record in filteredRecords" :key="record.id">
-                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors">
+                    <tr 
+                    @click="router.push({ name: 'employee-one', query: { code: record.tdl_code } })"
+                    class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors cursor-pointer">
                       <td class="px-4 py-4">
                         <button
-                          @click="toggleRow(record.id)"
+                          @click.stop="toggleRow(record.id)"
                           class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                         >
                           <ChevronDownIcon
@@ -778,13 +780,13 @@ onUnmounted(() => {
                       <td class="px-4 py-4 whitespace-nowrap">
                         <div class="flex items-center gap-2">
                           <button
-                            @click="openEditForm(record)"
+                            @click.stop="openEditForm(record)"
                             class="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                           >
                             <PencilSquareIcon class="h-4 w-4" />
                           </button>
                           <button
-                            @click="deleteRecord(record)"
+                            @click.stop="deleteRecord(record)"
                             class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           >
                             <TrashIcon class="h-4 w-4" />
