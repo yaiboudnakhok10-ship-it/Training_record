@@ -1,17 +1,27 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
-import { MagnifyingGlassIcon, ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, ExclamationTriangleIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 import Swal from 'sweetalert2'
+import * as XLSX from 'xlsx'
 
 const router = useRouter()
 
 const reRecords = ref([])
 const filteredRecords = ref([])
 const searchQuery = ref('')
+const selectedDepartment = ref('')
 const loading = ref(false)
 const expandedRecordId = ref(null)
+
+// รายชื่อแผนกทั้งหมด (ไม่ซ้ำ) ดึงจากข้อมูลที่มีอยู่ สำหรับใช้ใน dropdown
+const departmentOptions = computed(() => {
+  const depts = reRecords.value
+    .map(r => r.department)
+    .filter(d => d && d.trim() !== '')
+  return [...new Set(depts)].sort()
+})
 
 const fetchReRecords = async () => {
   try {
@@ -61,7 +71,7 @@ const fetchReRecords = async () => {
     
     // กรองกลุ่มที่มี courses.length > 0
     reRecords.value = Object.values(grouped).filter(item => item.courses.length > 0)
-    filteredRecords.value = reRecords.value
+    applyFilters()
   } catch (error) {
     console.error('Error fetching Re records:', error.message)
   } finally {
@@ -132,22 +142,28 @@ const deleteRecord = async (record) => {
   }
 }
 
-const searchRecords = () => {
+// กรองข้อมูลตามคำค้นหาและแผนกที่เลือก (ทำงานร่วมกันทั้งสองเงื่อนไข)
+const applyFilters = () => {
   const query = (searchQuery.value || '').toLowerCase().trim()
-  if (!query) {
-    filteredRecords.value = reRecords.value
-    return
-  }
+  const dept = selectedDepartment.value
+
   filteredRecords.value = reRecords.value.filter(record => {
-    return (
+    const matchesQuery = !query || (
       record.full_name?.toLowerCase().includes(query) ||
       record.id_tdl?.toLowerCase().includes(query)
     )
+    const matchesDept = !dept || record.department === dept
+    return matchesQuery && matchesDept
   })
+}
+
+const searchRecords = () => {
+  applyFilters()
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
+  selectedDepartment.value = ''
   filteredRecords.value = reRecords.value
 }
 
@@ -158,6 +174,75 @@ const formatDate = (dateStr) => {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const year = date.getFullYear()
   return `${day}/${month}/${year}`
+}
+
+// ดาวน์โหลดข้อมูลที่กรองอยู่ ณ ขณะนี้เป็นไฟล์ Excel (รวมรายละเอียดหลักสูตรของแต่ละคนด้วย)
+const downloadExcel = () => {
+  if (filteredRecords.value.length === 0) {
+    Swal.fire({
+      title: 'ไม่มีข้อมูล!',
+      text: 'ไม่มีข้อมูลให้ดาวน์โหลดในขณะนี้',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
+    return
+  }
+
+  const rows = []
+  filteredRecords.value.forEach(record => {
+    if (record.courses && record.courses.length > 0) {
+      record.courses.forEach(course => {
+        rows.push({
+          'กลุ่ม': record.group || '-',
+          'รหัส TDL': record.id_tdl || '-',
+          'ชื่อ-นามสกุล': record.full_name || '-',
+          'เพศ': record.gender || '-',
+          'ตำแหน่ง': record.position || '-',
+          'แผนก': record.department || '-',
+          'สัญชาติ': record.nationality || '-',
+          'สถานะ': record.status || '-',
+          'หลักสูตร': course.course_name || '-',
+          'วันที่อบรม': formatDate(course.training_date),
+          'REหลักสูตร': formatDate(course.re_date),
+          'สถานะ RE': course.status_re || 'Reแล้ว'
+        })
+      })
+    } else {
+      rows.push({
+        'กลุ่ม': record.group || '-',
+        'รหัส TDL': record.id_tdl || '-',
+        'ชื่อ-นามสกุล': record.full_name || '-',
+        'เพศ': record.gender || '-',
+        'ตำแหน่ง': record.position || '-',
+        'แผนก': record.department || '-',
+        'สัญชาติ': record.nationality || '-',
+        'สถานะ': record.status || '-',
+        'หลักสูตร': '-',
+        'วันที่อบรม': '-',
+        'REหลักสูตร': '-',
+        'สถานะ RE': '-'
+      })
+    }
+  })
+
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 18 },
+    { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 12 }
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'REหลักสูตร')
+
+  const deptLabel = selectedDepartment.value ? `_${selectedDepartment.value}` : ''
+  const dateLabel = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(workbook, `REหลักสูตร${deptLabel}_${dateLabel}.xlsx`)
 }
 
 onMounted(() => {
@@ -172,12 +257,21 @@ onMounted(() => {
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">REหลักสูตร</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">รายชื่อพนักงานที่ Reแล้ว</p>
       </div>
-      <div
-        @click="router.push('/health-check')"
-        class="inline-flex items-center gap-2 px-6 py-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-all cursor-pointer border-b-2 border-red-500"
-      >
-        <ExclamationTriangleIcon class="h-5 w-5" />
-        หมดอายุตรวจสุขภาพ
+      <div class="flex items-center gap-3">
+        <button
+          @click="downloadExcel"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm"
+        >
+          <ArrowDownTrayIcon class="h-5 w-5" />
+          ดาวน์โหลด Excel
+        </button>
+        <div
+          @click="router.push('/health-check')"
+          class="inline-flex items-center gap-2 px-6 py-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium transition-all cursor-pointer border-b-2 border-red-500"
+        >
+          <ExclamationTriangleIcon class="h-5 w-5" />
+          หมดอายุตรวจสุขภาพ
+        </div>
       </div>
     </div>
 
@@ -197,6 +291,20 @@ onMounted(() => {
             />
           </div>
         </div>
+
+        <div class="w-full sm:w-56">
+          <select
+            v-model="selectedDepartment"
+            @change="applyFilters"
+            class="block w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          >
+            <option value="">ทุกแผนก</option>
+            <option v-for="dept in departmentOptions" :key="dept" :value="dept">
+              {{ dept }}
+            </option>
+          </select>
+        </div>
+
         <div class="flex gap-3">
           <button
             @click="searchRecords"
@@ -316,3 +424,5 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+

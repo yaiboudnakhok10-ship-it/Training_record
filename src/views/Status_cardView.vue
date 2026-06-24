@@ -2,9 +2,10 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
-import { MagnifyingGlassIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, PencilSquareIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '../stores/auth'
 import Swal from 'sweetalert2'
+import * as XLSX from 'xlsx'
 
 const route = useRoute()
 const auth = useAuth()
@@ -13,6 +14,7 @@ const records = ref([])
 const loading = ref(true)
 const searchQuery = ref('')
 const statusFilter = ref('all')
+const departmentFilter = ref('all')
 const isSidebarOpen = ref(false)
 const editingRecord = ref(null)
 const remarkForm = ref('')
@@ -52,6 +54,14 @@ const pageDescription = computed(() => {
     return 'แสดงข้อมูลพนักงานที่จบทุกหลักสูตร'
   }
   return 'แสดงข้อมูลพนักงานและสถานะการรับบัตร'
+})
+
+// รายชื่อแผนกทั้งหมด (ไม่ซ้ำ) ดึงจากข้อมูลที่แสดงอยู่ในตาราง สำหรับใช้ใน dropdown
+const departmentOptions = computed(() => {
+  const depts = filteredRecords.value
+    .map(r => r.department)
+    .filter(d => d && d.trim() !== '')
+  return [...new Set(depts)].sort()
 })
 
 const openEditSidebar = (record) => {
@@ -174,6 +184,10 @@ const filteredRecords = computed(() => {
   if (statusFilter.value !== 'all') {
     result = result.filter(rec => rec.status_card === statusFilter.value)
   }
+
+  if (departmentFilter.value !== 'all') {
+    result = result.filter(rec => rec.department === departmentFilter.value)
+  }
   
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
@@ -189,6 +203,54 @@ const filteredRecords = computed(() => {
   
   return result
 })
+
+// ดาวน์โหลดข้อมูลที่กรองอยู่ ณ ขณะนี้เป็นไฟล์ Excel
+const downloadExcel = () => {
+  if (filteredRecords.value.length === 0) {
+    Swal.fire({
+      title: 'ไม่มีข้อมูล!',
+      text: 'ไม่มีข้อมูลให้ดาวน์โหลดในขณะนี้',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
+    return
+  }
+
+  const rows = filteredRecords.value.map(record => ({
+    'กลุ่ม': record.group || '-',
+    'รหัส TDL': record.id_tdl || '-',
+    'รหัสล้านช้าง': record.employee_id || '-',
+    'ชื่อ-นามสกุล': `${record.first_name || ''} ${record.last_name || ''}`.trim() || '-',
+    'เพศ': record.gender || '-',
+    'ตำแหน่ง': record.position || '-',
+    'แผนก': record.department || '-',
+    'สัญชาติ': record.nationality || '-',
+    'สถานะ': record.status_card || '-',
+    'หมายเหตุ': record.status_card === 'ยังไม่ได้รับ' ? (record.remark || '-') : '-',
+    'ผู้อัปเดต': record.updated_by || record.created_by || '-',
+    'วันที่อัปเดต': (record.updated_at || record.created_at) ? new Date(record.updated_at || record.created_at).toLocaleDateString('en-GB') : '-'
+  }))
+
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 25 }, { wch: 8 },
+    { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 25 }, { wch: 16 }, { wch: 14 }
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'สถานะบัตร')
+
+  const statusLabel = statusFilter.value !== 'all' ? `_${statusFilter.value}` : ''
+  const deptLabel = departmentFilter.value !== 'all' ? `_${departmentFilter.value}` : ''
+  const dateLabel = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(workbook, `${pageTitle.value}${statusLabel}${deptLabel}_${dateLabel}.xlsx`)
+}
 </script>
 
 <template>
@@ -199,8 +261,17 @@ const filteredRecords = computed(() => {
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ pageTitle }}</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ pageDescription }}</p>
       </div>
-      <div class="text-sm text-gray-500 dark:text-gray-400">
-        ทั้งหมด: <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ filteredRecords.length }}</span> คน
+      <div class="flex items-center gap-4">
+        <button
+          @click="downloadExcel"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm"
+        >
+          <ArrowDownTrayIcon class="h-5 w-5" />
+          ดาวน์โหลด Excel
+        </button>
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+          ทั้งหมด: <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ filteredRecords.length }}</span> คน
+        </div>
       </div>
     </div>
 
@@ -224,6 +295,15 @@ const filteredRecords = computed(() => {
         <option value="all">ทุกสถานะ</option>
         <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
         <option value="ได้รับแล้ว">ได้รับแล้ว</option>
+      </select>
+      <select
+        v-model="departmentFilter"
+        class="block w-full sm:w-48 pl-3 pr-10 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+      >
+        <option value="all">ทุกแผนก</option>
+        <option v-for="dept in departmentOptions" :key="dept" :value="dept">
+          {{ dept }}
+        </option>
       </select>
     </div>
 
@@ -385,3 +465,6 @@ const filteredRecords = computed(() => {
     </div>
   </div>
 </template>
+
+
+

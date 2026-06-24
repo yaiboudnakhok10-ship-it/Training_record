@@ -12,6 +12,8 @@ const searchQuery = ref('')
 const isSidebarOpen = ref(false)
 const editingCourse = ref(null)
 const courseName = ref('')
+const courseImportDate = ref('')
+const courseExpireDate = ref('')
 
 const fetchCourses = async () => {
   try {
@@ -30,6 +32,21 @@ const fetchCourses = async () => {
   }
 }
 
+const calculateExpireAge = (expireDateStr) => {
+  if (!expireDateStr) return '-'
+  const today = new Date()
+  const expireDate = new Date(expireDateStr)
+  let years = expireDate.getFullYear() - today.getFullYear()
+  const monthDiff = expireDate.getMonth() - today.getMonth()
+  
+  // 如果月份相同但日期还没到，或者月份还没到，就减一年
+  if (monthDiff < 0 || (monthDiff === 0 && expireDate.getDate() < today.getDate())) {
+    years--
+  }
+  
+  return years
+}
+
 const filteredCourses = () => {
   if (!searchQuery.value) return courses.value
   const query = searchQuery.value.toLowerCase()
@@ -42,12 +59,16 @@ const filteredCourses = () => {
 const openAddSidebar = () => {
   editingCourse.value = null
   courseName.value = ''
+  courseImportDate.value = ''
+  courseExpireDate.value = ''
   isSidebarOpen.value = true
 }
 
 const openEditSidebar = (course) => {
   editingCourse.value = course
   courseName.value = course.course_name
+  courseImportDate.value = course.course_import_date || ''
+  courseExpireDate.value = course.course_expire_date || ''
   isSidebarOpen.value = true
 }
 
@@ -55,6 +76,8 @@ const closeSidebar = () => {
   isSidebarOpen.value = false
   editingCourse.value = null
   courseName.value = ''
+  courseImportDate.value = ''
+  courseExpireDate.value = ''
 }
 
 const saveCourse = async () => {
@@ -79,7 +102,9 @@ const saveCourse = async () => {
       const { error } = await supabaseInternal
         .from('courses')
         .update({
-          course_name: courseName.value.trim()
+          course_name: courseName.value.trim(),
+          course_import_date: courseImportDate.value || null,
+          course_expire_date: courseExpireDate.value || null
         })
         .eq('id', editingCourse.value.id)
 
@@ -89,7 +114,9 @@ const saveCourse = async () => {
         .from('courses')
         .insert({
           course_name: courseName.value.trim(),
-          created_by: auth.user?.fullname || 'Unknown'
+          created_by: auth.user?.fullname || 'Unknown',
+          course_import_date: courseImportDate.value || null,
+          course_expire_date: courseExpireDate.value || null
         })
 
       if (error) throw error
@@ -235,6 +262,9 @@ onMounted(() => {
           <thead>
             <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อหลักสูตร</th>
+              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันที่ลงทะเบียน</th>
+              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันที่หมดอายุ</th>
+              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">อายุ (ปี)</th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ผู้สร้าง / วันที่</th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">จัดการ</th>
             </tr>
@@ -242,13 +272,13 @@ onMounted(() => {
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
             <template v-if="loading">
               <tr v-for="i in 3" :key="i" class="animate-pulse">
-                <td colspan="3" class="px-6 py-4">
+                <td colspan="6" class="px-6 py-4">
                   <div class="h-10 bg-gray-100 dark:bg-gray-900 rounded-lg w-full"></div>
                 </td>
               </tr>
             </template>
             <tr v-else-if="filteredCourses().length === 0" class="text-center">
-              <td colspan="3" class="px-6 py-12 text-gray-500 dark:text-gray-400 italic">
+              <td colspan="6" class="px-6 py-12 text-gray-500 dark:text-gray-400 italic">
                 ไม่พบข้อมูลหลักสูตร
               </td>
             </tr>
@@ -261,6 +291,15 @@ onMounted(() => {
                 <div class="text-sm font-bold text-gray-900 dark:text-white">
                   {{ course.course_name }}
                 </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                {{ course.course_import_date ? new Date(course.course_import_date).toLocaleDateString('en-GB') : '-' }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                {{ course.course_expire_date ? new Date(course.course_expire_date).toLocaleDateString('en-GB') : '-' }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                {{ calculateExpireAge(course.course_expire_date) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -319,6 +358,22 @@ onMounted(() => {
               class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               placeholder="กรอกชื่อหลักสูตร"
               @keyup.enter="saveCourse"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่ลงทะเบียน</label>
+            <input
+              v-model="courseImportDate"
+              type="date"
+              class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">วันที่หมดอายุ</label>
+            <input
+              v-model="courseExpireDate"
+              type="date"
+              class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
           </div>
         </div>

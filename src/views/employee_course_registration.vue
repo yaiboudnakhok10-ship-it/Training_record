@@ -8,7 +8,6 @@ import { MagnifyingGlassIcon, PlusIcon, PencilSquareIcon, TrashIcon, ChevronDown
 import Swal from 'sweetalert2'
 
 const router = useRouter()
-
 const auth = useAuth()
 const records = ref([])
 const courses = ref([])
@@ -726,9 +725,7 @@ onUnmounted(() => {
                 </tr>
                 <template v-else>
                   <template v-for="record in filteredRecords" :key="record.id">
-                    <tr 
-                    @click="router.push({ name: 'employee-one', query: { code: record.tdl_code } })"
-                    class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors cursor-pointer">
+                    <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors">
                       <td class="px-4 py-4">
                         <button
                           @click.stop="toggleRow(record.id)"

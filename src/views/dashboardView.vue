@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
 import * as XLSX from 'xlsx'
 import { 
@@ -12,6 +13,7 @@ import {
   ArrowDownTrayIcon
 } from '@heroicons/vue/24/solid'
 
+const router = useRouter()
 const loading = ref(true)
 const records = ref([])
 const dateFilter = ref('all') // 'all', 'today', '7days', 'month', 'year'

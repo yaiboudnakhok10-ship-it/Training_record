@@ -8,6 +8,18 @@ const loading = ref(true)
 const searchQuery = ref('')
 const expandedRecordId = ref(null)
 const activeTab = ref('top') // 'all' = all statuses, 'top' = most completed
+const departmentFilter = ref('')
+
+// 获取所有唯一部门
+const departmentOptions = computed(() => {
+  const departments = new Set()
+  records.value.forEach(record => {
+    if (record.department) {
+      departments.add(record.department)
+    }
+  })
+  return Array.from(departments).sort()
+})
 
 const fetchRecords = async () => {
   try {
@@ -85,6 +97,11 @@ const filteredRecords = computed(() => {
     )
   }
   
+  // 部门筛选
+  if (departmentFilter.value) {
+    result = result.filter(rec => rec.department === departmentFilter.value)
+  }
+  
   if (!searchQuery.value) return result
   
   const query = searchQuery.value.toLowerCase()
@@ -130,17 +147,30 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Search -->
-    <div class="relative max-w-sm w-full">
-      <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
-      </span>
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="ค้นหาชื่อ, รหัส, ตำแหน่ง..."
-        class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-      />
+    <!-- Search and Filter -->
+    <div class="flex flex-col sm:flex-row gap-4">
+      <div class="relative max-w-sm flex-1">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
+        </span>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="ค้นหาชื่อ, รหัส, ตำแหน่ง..."
+          class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+        />
+      </div>
+      <div class="relative max-w-xs">
+        <select
+          v-model="departmentFilter"
+          class="block w-full px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+        >
+          <option value="">ทุกแผนก</option>
+          <option v-for="dept in departmentOptions" :key="dept" :value="dept">
+            {{ dept }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- Table Container -->

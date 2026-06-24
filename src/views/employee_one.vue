@@ -15,18 +15,41 @@ const registeredCourses = ref([])
 const allCourses = ref([])
 const employeeList = ref([])
 const searchQuery = ref('')
+const departmentFilter = ref('')
 const selectedEmployee = ref(null)
 const showDetail = ref(false)
 
+// 获取所有唯一部门
+const departmentOptions = computed(() => {
+  const departments = new Set()
+  employeeList.value.forEach(emp => {
+    if (emp.department) {
+      departments.add(emp.department)
+    }
+  })
+  return Array.from(departments).sort()
+})
+
 // 筛选员工列表
 const filteredEmployeeList = computed(() => {
-  if (!searchQuery.value) return employeeList.value
-  const query = searchQuery.value.toLowerCase()
-  return employeeList.value.filter(emp => 
-    emp.full_name?.toLowerCase().includes(query) ||
-    emp.tdl_code?.toLowerCase().includes(query) ||
-    emp.department?.toLowerCase().includes(query)
-  )
+  let result = employeeList.value
+  
+  // 搜索筛选
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(emp => 
+      emp.full_name?.toLowerCase().includes(query) ||
+      emp.tdl_code?.toLowerCase().includes(query) ||
+      emp.department?.toLowerCase().includes(query)
+    )
+  }
+  
+  // 部门筛选
+  if (departmentFilter.value) {
+    result = result.filter(emp => emp.department === departmentFilter.value)
+  }
+  
+  return result
 })
 
 // 获取所有员工列表
@@ -57,14 +80,7 @@ const fetchEmployeeData = async (employee) => {
     const lastName = employee?.full_name?.split(' ').slice(1).join(' ') || route.query.last_name
     console.log('Fetching data - tdlCode:', tdlCode, 'firstName:', firstName, 'lastName:', lastName)
 
-    // 获取所有课程
-    const { data: allCoursesData, error: coursesError } = await supabaseInternal
-      .from('courses')
-      .select('*')
-    if (coursesError) throw coursesError
-    allCourses.value = allCoursesData || []
-
-    // 从 employee_training_records 获取已完成的课程
+    // 1. 从 employee_training_records 获取该员工的所有课程（显示所有，包括重复的）
     let trainingQuery = supabaseInternal
       .from('employee_training_records')
       .select('*')
@@ -81,7 +97,7 @@ const fetchEmployeeData = async (employee) => {
     if (trainingError) throw trainingError
     console.log('Training data:', trainingData)
 
-    // 处理训练数据
+    // 处理训练数据 - 获取员工基本信息
     if (trainingData && trainingData.length > 0) {
       const firstRecord = trainingData[0]
       console.log('First training record:', firstRecord)
@@ -101,44 +117,22 @@ const fetchEmployeeData = async (employee) => {
         date_health_expiry: firstRecord.date_health_expiry
       }
       console.log('Set employeeData from training:', employeeData.value)
-
-      // 提取已完成的课程
-      const courses = []
-      trainingData.forEach(record => {
-        if (record.course_name) {
-          const courseNames = record.course_name.split(/[,，]/).map(c => c.trim()).filter(c => c)
-          courseNames.forEach(courseName => {
-            if (!courses.find(c => c.name === courseName)) {
-              courses.push({
-                name: courseName,
-                trainingDate: record.training_date,
-                reDate: record.re_date,
-                statusRe: record.status_re,
-                status: record.status_courses || 'ผ่านแล้ว'
-              })
-            }
-          })
-        }
-      })
-      completedCourses.value = courses
-    } else if (employee) {
-      // 如果没有 training records，使用 employee_course_registration 的数据
-      console.log('Using employee data from registration:', employee)
-      employeeData.value = {
-        group_name: employee.group_name,
-        tdl_code: employee.tdl_code,
-        full_name: employee.full_name,
-        position: employee.position,
-        department: employee.department,
-        gender: employee.gender,
-        nationality: employee.nationality,
-        status: employee.status
-      }
-      console.log('Set employeeData from registration:', employeeData.value)
-      completedCourses.value = []
     }
 
-    // 从 employee_course_registration 获取注册课程
+    // 显示所有课程（包括重复的）
+    trainingData.forEach(record => {
+      if (record.course_name) {
+        completedCourses.value.push({
+          name: record.course_name,
+          trainingDate: record.training_date,
+          reDate: record.re_date,
+          statusRe: record.status_re,
+          status: record.status_courses || 'ผ่านแล้ว'
+        })
+      }
+    })
+
+    // 2. 从 employee_course_registration 获取注册课程 - 只显示该员工在表里有的课程
     let registrationQuery = supabaseInternal
       .from('employee_course_registration')
       .select('*')
@@ -151,7 +145,9 @@ const fetchEmployeeData = async (employee) => {
 
     const { data: registrationData, error: registrationError } = await registrationQuery
     if (registrationError) throw registrationError
+    console.log('Registration data:', registrationData)
 
+    // 如果还没有员工数据，从 registration 中获取
     if (registrationData && registrationData.length > 0 && !employeeData.value) {
       const firstRegRecord = registrationData[0]
       employeeData.value = {
@@ -164,29 +160,28 @@ const fetchEmployeeData = async (employee) => {
         nationality: firstRegRecord.nationality,
         status: firstRegRecord.status
       }
+      console.log('Set employeeData from registration:', employeeData.value)
     }
 
-    // 计算已注册课程 = 所有课程 - 已完成课程
-    const completedCourseNames = completedCourses.value.map(c => c.name.toLowerCase())
-    registeredCourses.value = allCourses.value
-      .filter(course => !completedCourseNames.includes(course.course_name?.toLowerCase()))
-      .map(course => ({
-        name: course.course_name,
-        status: 'ยังไม่ได้เรียน'
-      }))
+    // 只从 employee_course_registration 表里有的课程，排除已完成的课程
+    const completedCourseNames = new Set(trainingData.map(r => r.course_name))
+    const registeredCourseSet = new Set()
+    registrationData.forEach(record => {
+      if (record.course_name) {
+        const courseNames = record.course_name.split(/[,，]/).map(c => c.trim()).filter(c => c)
+        courseNames.forEach(courseName => {
+          // 排除已经完成的课程
+          if (!completedCourseNames.has(courseName) && !registeredCourseSet.has(courseName)) {
+            registeredCourseSet.add(courseName)
+            registeredCourses.value.push({
+              name: courseName,
+              status: 'ยังไม่ได้เรียน'
+            })
+          }
+        })
+      }
+    })
 
-    // 如果有注册数据，添加到已注册课程
-    if (registrationData && registrationData.length > 0 && registrationData[0].course_name) {
-      const registeredFromReg = registrationData[0].course_name.split(/[,，]/).map(c => c.trim()).filter(c => c)
-      registeredFromReg.forEach(courseName => {
-        if (!completedCourseNames.includes(courseName.toLowerCase()) && !registeredCourses.value.find(c => c.name.toLowerCase() === courseName.toLowerCase())) {
-          registeredCourses.value.push({
-            name: courseName,
-            status: 'ยังไม่ได้เรียน'
-          })
-        }
-      })
-    }
   } catch (error) {
     console.error('Error fetching employee data:', error.message)
   } finally {
@@ -201,6 +196,10 @@ const fetchEmployeeData = async (employee) => {
 const viewEmployeeDetail = (employee) => {
   selectedEmployee.value = employee
   showDetail.value = true
+  // 清空旧数据
+  completedCourses.value = []
+  registeredCourses.value = []
+  employeeData.value = null
   console.log('Viewing employee:', employee)
   fetchEmployeeData(employee)
 }
@@ -295,17 +294,30 @@ onMounted(async () => {
         </div>
       </div>
       
-      <!-- Search Box -->
-      <div class="relative max-w-sm mb-4">
-        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
-        </span>
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="ค้นหาชื่อ, รหัส TDL..."
-          class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-        />
+      <!-- Search and Filter -->
+      <div class="flex flex-col sm:flex-row gap-4 mb-4">
+        <div class="relative max-w-sm flex-1">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
+          </span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="ค้นหาชื่อ, รหัส TDL..."
+            class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          />
+        </div>
+        <div class="relative max-w-xs">
+          <select
+            v-model="departmentFilter"
+            class="block w-full pl-3 pr-10 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          >
+            <option value="">ทุกแผนก</option>
+            <option v-for="dept in departmentOptions" :key="dept" :value="dept">
+              {{ dept }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Employee List Table -->

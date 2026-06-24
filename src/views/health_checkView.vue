@@ -1,16 +1,26 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabaseInternal } from '../server/supabase'
-import { MagnifyingGlassIcon, ArrowLeftIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { MagnifyingGlassIcon, ArrowLeftIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 import { showSuccess, showError, showConfirm } from '../utils/sweetalert'
+import * as XLSX from 'xlsx'
 
 const router = useRouter()
 
 const healthRecords = ref([])
 const filteredRecords = ref([])
 const searchQuery = ref('')
+const selectedDepartment = ref('')
 const loading = ref(false)
+
+// รายชื่อแผนกทั้งหมด (ไม่ซ้ำ) ดึงจากข้อมูลที่มีอยู่ สำหรับใช้ใน dropdown
+const departmentOptions = computed(() => {
+  const depts = healthRecords.value
+    .map(r => r.department)
+    .filter(d => d && d.trim() !== '')
+  return [...new Set(depts)].sort()
+})
 
 const fetchHealthRecords = async () => {
   try {
@@ -23,7 +33,7 @@ const fetchHealthRecords = async () => {
     if (error) throw error
     
     healthRecords.value = data
-    filteredRecords.value = healthRecords.value
+    applyFilters()
   } catch (error) {
     console.error('Error fetching health check records:', error.message)
   } finally {
@@ -58,22 +68,28 @@ const deleteRecord = async (record) => {
   }
 }
 
-const searchRecords = () => {
+// กรองข้อมูลตามคำค้นหาและแผนกที่เลือก (ทำงานร่วมกันทั้งสองเงื่อนไข)
+const applyFilters = () => {
   const query = (searchQuery.value || '').toLowerCase().trim()
-  if (!query) {
-    filteredRecords.value = healthRecords.value
-    return
-  }
+  const dept = selectedDepartment.value
+
   filteredRecords.value = healthRecords.value.filter(record => {
-    return (
+    const matchesQuery = !query || (
       record.full_name?.toLowerCase().includes(query) ||
       record.tdl_code?.toLowerCase().includes(query)
     )
+    const matchesDept = !dept || record.department === dept
+    return matchesQuery && matchesDept
   })
+}
+
+const searchRecords = () => {
+  applyFilters()
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
+  selectedDepartment.value = ''
   filteredRecords.value = healthRecords.value
 }
 
@@ -116,6 +132,41 @@ const calculateYearsDifference = (startDateStr, endDateStr) => {
   return years
 }
 
+// ดาวน์โหลดข้อมูลที่กรองอยู่ ณ ขณะนี้เป็นไฟล์ Excel
+const downloadExcel = () => {
+  if (filteredRecords.value.length === 0) {
+    showError('ไม่มีข้อมูล!', 'ไม่มีข้อมูลให้ดาวน์โหลดในขณะนี้')
+    return
+  }
+
+  const rows = filteredRecords.value.map(record => ({
+    'กลุ่ม': record.group_name || '-',
+    'รหัส TDL': record.tdl_code || '-',
+    'ชื่อ-นามสกุล': record.full_name || '-',
+    'เพศ': record.gender || '-',
+    'ตำแหน่ง': record.position || '-',
+    'แผนก': record.department || '-',
+    'สัญชาติ': record.nationality || '-',
+    'สถานะ': record.status || '-',
+    'วันที่ตรวจสุขภาพ': formatDate(record.checkup_date),
+    'วันที่หมดอายุ': formatDate(record.checkup_expire_date),
+    'สถานะการตรวจ': isExpired(record.checkup_expire_date) ? 'หมดอายุ' : 'ยังไม่หมดอายุ'
+  }))
+
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 18 },
+    { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 14 }
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'หมดอายุตรวจสุขภาพ')
+
+  const deptLabel = selectedDepartment.value ? `_${selectedDepartment.value}` : ''
+  const dateLabel = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(workbook, `หมดอายุตรวจสุขภาพ${deptLabel}_${dateLabel}.xlsx`)
+}
+
 onMounted(() => {
   fetchHealthRecords()
 })
@@ -136,6 +187,14 @@ onMounted(() => {
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">รายชื่อพนักงานที่หมดอายุตรวจสุขภาพ</p>
         </div>
       </div>
+
+      <button
+        @click="downloadExcel"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm"
+      >
+        <ArrowDownTrayIcon class="h-5 w-5" />
+        ดาวน์โหลด Excel
+      </button>
     </div>
 
     <div class="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
@@ -154,6 +213,20 @@ onMounted(() => {
             />
           </div>
         </div>
+
+        <div class="w-full sm:w-56">
+          <select
+            v-model="selectedDepartment"
+            @change="applyFilters"
+            class="block w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          >
+            <option value="">ทุกแผนก</option>
+            <option v-for="dept in departmentOptions" :key="dept" :value="dept">
+              {{ dept }}
+            </option>
+          </select>
+        </div>
+
         <div class="flex gap-3">
           <button
             @click="searchRecords"
@@ -241,3 +314,5 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+
