@@ -55,6 +55,7 @@ const menuGroups = [
       { id: "search", icon: CheckCircleIcon, label: "พนักงานที่ได้บัตแล้ว" },
       { id: "register-employee", icon: AcademicCapIcon, label: "พนักงานที่จบทุกหลักสูตร" },
       { id: "employee-training", icon: ClipboardDocumentListIcon, label: "REหลักสูตร" },
+      { id: "employee-one", icon: UserGroupIcon, label: "พนักงานบุคคล" },
       // { id: "health-check", icon: HeartIcon, label: "หมดอายุตรวจสุขภาพ" },
     ]
   },
