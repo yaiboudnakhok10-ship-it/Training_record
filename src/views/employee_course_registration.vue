@@ -145,7 +145,20 @@ const fillEmployeeData = (tdlCode) => {
     formData.value.full_name = fullNameInput.value
     formData.value.position = employee.position || ''
     formData.value.department = employee.department || ''
-    formData.value.gender = employee.gender || ''
+    
+    // ตรวจสอบเพศจากคอลัมน์ pn ก่อน
+    let genderFromPn = ''
+    if (employee.pn) {
+      const pn = employee.pn.trim()
+      if (pn.startsWith('ท้าว') || pn.startsWith('นาย')) {
+        genderFromPn = 'ชาย'
+      } else if (pn.startsWith('นางสาว') || pn.startsWith('นาง')) {
+        genderFromPn = 'หญิง'
+      }
+    }
+    // ใช้เพศจาก pn ถ้ามี ถ้าไม่มีใช้จาก gender field
+    formData.value.gender = genderFromPn || employee.gender || ''
+    
     formData.value.nationality = employee.nationality || ''
     formData.value.status = employee.status || ''
   }
