@@ -81,6 +81,7 @@ const filteredEmployees = computed(() => {
   const query = tdlSearchQuery.value.toLowerCase()
   return employees.value.filter(emp => 
     emp.employee_code?.toLowerCase().includes(query) ||
+    emp.id_lxml?.toLowerCase().includes(query) ||
     emp.fullname?.toLowerCase().includes(query) ||
     emp.firstname?.toLowerCase().includes(query) ||
     emp.lastname?.toLowerCase().includes(query)
@@ -99,6 +100,7 @@ const getFilteredCourses = (query) => {
 const formData = ref({
   group: '',
   id_tdl: '',
+  employee_id: '',
   first_name: '',
   last_name: '',
   position: '',
@@ -338,10 +340,10 @@ const fetchEmployees = async () => {
   }
 }
 
-// ฟังก์ชันเติมข้อมูลพนักงานอัตโนมัติเมื่อเลือกรหัส TDL
-const fillEmployeeData = (tdlCode) => {
-  const employee = employees.value.find(emp => emp.employee_code === tdlCode)
-  console.log('fillEmployeeData called with tdlCode:', tdlCode)
+// ฟังก์ชันเติมข้อมูลพนักงานอัตโนมัติเมื่อเลือกรหัส TDL หรือ id_lxml
+const fillEmployeeData = (code) => {
+  const employee = employees.value.find(emp => emp.employee_code === code || emp.id_lxml === code)
+  console.log('fillEmployeeData called with code:', code)
   console.log('Found employee:', employee)
   if (employee) {
     // เติมค่า fullNameInput
@@ -361,7 +363,7 @@ const fillEmployeeData = (tdlCode) => {
     }
     formData.value.position = employee.position || ''
     formData.value.department = employee.department || ''
-    formData.value.employee_id = employee.employee_code || ''
+    formData.value.employee_id = employee.id_lxml || ''
     
     // ตรวจสอบเพศจากคอลัมน์ pn ก่อน
     let genderFromPn = ''
@@ -444,6 +446,7 @@ const fetchRecords = async () => {
     // ตรวจสอบและอัปเดต status_re สำหรับ course ที่ถึงวัน re_date แล้ว
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    console.log('Today (for auto-archive):', today.toISOString())
     
     const updates = []
     const toArchive = []
@@ -457,6 +460,7 @@ const fetchRecords = async () => {
       if (record.re_date && record.status_re !== 'Reแล้ว') {
         const reDate = new Date(record.re_date)
         reDate.setHours(0, 0, 0, 0)
+        console.log('Checking record:', record.id, 're_date:', reDate.toISOString(), 'today:', today.toISOString(), 'reDate <= today:', reDate <= today)
         
         if (reDate <= today) {
           shouldUpdateStatus = true
@@ -490,6 +494,7 @@ const fetchRecords = async () => {
         toArchive.push(record)
       }
     })
+    console.log('Records to archive:', toArchive)
     
     // ทำการอัปเดตทีละรายการ
     for (const update of updates) {
@@ -672,6 +677,7 @@ const filteredRecords = () => {
     record.first_name?.toLowerCase().includes(query) ||
     record.last_name?.toLowerCase().includes(query) ||
     record.employee_id?.toLowerCase().includes(query) ||
+    record.id_tdl?.toLowerCase().includes(query) ||
     record.department?.toLowerCase().includes(query)
   )
 }
@@ -686,6 +692,7 @@ const openAddSidebar = () => {
   formData.value = {
     group: '',
     id_tdl: '',
+    employee_id: '',
     first_name: '',
     last_name: '',
     position: '',
@@ -719,6 +726,7 @@ const openEditSidebar = (record, course = null) => {
   formData.value = {
     group: record.group || '',
     id_tdl: record.id_tdl || '',
+    employee_id: record.employee_id || '',
     first_name: record.first_name || '',
     last_name: record.last_name || '',
     position: record.position || '',
@@ -754,6 +762,7 @@ const openEditRowSidebar = (record) => {
   editingRowRecord.value = {
     id: record.id,
     group: record.group,
+    id_tdl: record.id_tdl || '',
     original_employee_id: record.employee_id || '', // เก็บค่าเดิมไว้
     employee_id: record.employee_id || '',
     first_name: record.first_name,
@@ -772,12 +781,19 @@ const openEditRowSidebar = (record) => {
 const saveEditRow = async () => {
   try {
     console.log('Saving row:', editingRowRecord.value)
+    console.log('original_employee_id:', editingRowRecord.value.original_employee_id)
+    
+    // Auto-set status_card based on employee_id
+    const autoStatusCard = editingRowRecord.value.employee_id && editingRowRecord.value.employee_id.trim() !== '' ? 'ได้รับแล้ว' : 'ยังไม่ได้รับ'
+    console.log('Auto-set status_card to:', autoStatusCard)
+    
     // Update all records for this employee
     let query = supabaseInternal
       .from('employee_training_records')
       .update({
+        id_tdl: editingRowRecord.value.id_tdl || null,
         employee_id: editingRowRecord.value.employee_id || null,
-        status_card: editingRowRecord.value.status_card,
+        status_card: autoStatusCard,
         date_health_check: editingRowRecord.value.date_health_check || null,
         date_health_expiry: editingRowRecord.value.date_health_expiry || null
       })
@@ -790,6 +806,7 @@ const saveEditRow = async () => {
       query = query.is('employee_id', null)
     }
     
+    console.log('Running update query...')
     const { data, error } = await query.select()
     
     console.log('Update result:', data, error)
@@ -800,7 +817,7 @@ const saveEditRow = async () => {
     fetchRecords()
     Swal.fire({
       title: 'บันทึกสำเร็จ!',
-      text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+      text: `บันทึกข้อมูลเรียบร้อยแล้ว (สถานะ: ${autoStatusCard})`,
       icon: 'success',
       customClass: {
         popup: '!p-3 !max-w-md',
@@ -999,6 +1016,7 @@ const closeSidebar = () => {
   formData.value = {
     group: '',
     id_tdl: '',
+    employee_id: '',
     first_name: '',
     last_name: '',
     position: '',
@@ -1041,6 +1059,13 @@ const setCourseSearchQuery = (index, value) => {
   courseSearchQueries.value[index] = value
 }
 
+// ฟังก์ชันจัดการ blur event สำหรับ dropdown หลักสูตร
+const handleCourseDropdownBlur = (index) => {
+  setTimeout(() => {
+    setCourseDropdownOpen(index, false)
+  }, 200)
+}
+
 // ฟังก์ชันตรวจสอบข้อมูลในฟอร์ม "เพิ่ม/แก้ไขข้อมูลพนักงานทั้งหมด" ก่อนบันทึก
 // คืนค่าเป็น array ของชื่อฟิวด์ที่ยังป้อนข้อมูลไม่ครบ (ถ้าไม่มีอะไรขาดจะคืน array ว่าง)
 const validateForm = () => {
@@ -1073,6 +1098,9 @@ const validateForm = () => {
 
 const saveRecord = async () => {
   console.log('auth.user value:', auth.user)
+  console.log('formData.value:', formData.value)
+  console.log('editingRecord.value:', editingRecord.value)
+  console.log('isEditingSingleCourse.value:', isEditingSingleCourse.value)
   
   // ตรวจสอบว่ามีหลักสูตรซ้ำหรือไม่ (เฉพาะเมื่อเพิ่มใหม่ หรือเพิ่มหลักสูตรใหม่)
   if (!editingRecord.value || !isEditingSingleCourse.value) {
@@ -1121,6 +1149,7 @@ const saveRecord = async () => {
     updateNameFromInput()
 
     const missingFields = validateForm()
+    console.log('missingFields:', missingFields)
     if (missingFields.length > 0) {
       Swal.fire({
         title: 'กรุณาป้อนข้อมูลให้ครบ!',
@@ -1144,6 +1173,10 @@ const saveRecord = async () => {
   // Get the correct username from auth.user
   const username = auth.user?.fullname || auth.user?.name || auth.user?.username || 'Unknown'
   console.log('Username to save:', username)
+  
+  // Auto-set status_card based on employee_id
+  const autoStatusCard = formData.value.employee_id && formData.value.employee_id.trim() !== '' ? 'ได้รับแล้ว' : 'ยังไม่ได้รับ'
+  console.log('Auto-set status_card to:', autoStatusCard)
 
   // อัปโหลดไฟล์แนบ (ถ้ามีการเลือกไฟล์ใหม่) ก่อนบันทึกข้อมูล
   if (!isEditingSingleCourse.value && attachmentFile.value) {
@@ -1176,11 +1209,11 @@ const saveRecord = async () => {
       const dataToUpdateBase = {
         group: formData.value.group.trim() || null,
         id_tdl: formData.value.id_tdl.trim() || null,
+        employee_id: formData.value.employee_id.trim() || null,
         gender: formData.value.gender.trim() || null,
         nationality: formData.value.nationality.trim() || null,
-        employee_id: formData.value.employee_id || null,
         status: formData.value.status || null,
-        status_card: formData.value.status_card || null,
+        status_card: autoStatusCard,
         date_health_check: formData.value.date_health_check || null,
         date_health_expiry: formData.value.date_health_expiry || null,
         attachment_url: formData.value.attachment_url || null
@@ -1249,12 +1282,14 @@ const saveRecord = async () => {
     } else {
       // เพิ่มข้อมูลใหม่
       const validCourses = formData.value.courses.filter(c => c.course_name);
+      console.log('validCourses:', validCourses);
       
       if (validCourses.length === 0) {
         // ถ้าไม่มี course ให้เพิ่มแค่ข้อมูลพนักงาน
         const dataToInsertBase = {
             group: formData.value.group.trim() || null,
             id_tdl: formData.value.id_tdl.trim() || null,
+            employee_id: formData.value.employee_id.trim() || null,
             first_name: formData.value.first_name.trim(),
             last_name: formData.value.last_name.trim(),
             position: formData.value.position.trim() || null,
@@ -1265,23 +1300,30 @@ const saveRecord = async () => {
             date_health_check: formData.value.date_health_check || null,
             date_health_expiry: formData.value.date_health_expiry || null,
             attachment_url: formData.value.attachment_url || null,
+            status_card: autoStatusCard,
             course_name: null,
             training_date: null
           };
+        console.log('dataToInsertBase (no course):', dataToInsertBase);
         const dataToInsertWithCreatedBy = {
             ...dataToInsertBase,
             created_by: username
         };
-        let { error } = await supabaseInternal
+        console.log('dataToInsertWithCreatedBy (no course):', dataToInsertWithCreatedBy);
+        let { data, error } = await supabaseInternal
           .from('employee_training_records')
-          .insert(dataToInsertWithCreatedBy);
+          .insert(dataToInsertWithCreatedBy)
+          .select();
+        console.log('Insert result (no course):', data, error);
         
         // If error, try without created_by
         if (error) {
             console.log('Error inserting with created_by, trying without...', error);
-            const { error: errorWithoutCreatedBy } = await supabaseInternal
+            const { data: dataWithoutCreatedBy, error: errorWithoutCreatedBy } = await supabaseInternal
                 .from('employee_training_records')
-                .insert(dataToInsertBase);
+                .insert(dataToInsertBase)
+                .select();
+            console.log('Insert result without created_by (no course):', dataWithoutCreatedBy, errorWithoutCreatedBy);
             if (errorWithoutCreatedBy) throw errorWithoutCreatedBy;
         }
       } else {
@@ -1290,6 +1332,7 @@ const saveRecord = async () => {
             const dataToInsertBase = {
               group: formData.value.group.trim() || null,
               id_tdl: formData.value.id_tdl.trim() || null,
+              employee_id: formData.value.employee_id.trim() || null,
               first_name: formData.value.first_name.trim(),
               last_name: formData.value.last_name.trim(),
               position: formData.value.position.trim() || null,
@@ -1300,26 +1343,33 @@ const saveRecord = async () => {
               date_health_check: formData.value.date_health_check || null,
               date_health_expiry: formData.value.date_health_expiry || null,
               attachment_url: formData.value.attachment_url || null,
+              status_card: autoStatusCard,
               status_courses: course.status || 'ยังไม่ผ่าน',
               course_name: course.course_name,
               training_date: course.training_date || null,
               re_date: course.re_date || null,
               status_re: course.status_re || null
             };
+            console.log('dataToInsertBase (with course):', dataToInsertBase);
             const dataToInsertWithCreatedBy = {
                 ...dataToInsertBase,
                 created_by: username
             };
-          let { error } = await supabaseInternal
+            console.log('dataToInsertWithCreatedBy (with course):', dataToInsertWithCreatedBy);
+          let { data, error } = await supabaseInternal
             .from('employee_training_records')
-            .insert(dataToInsertWithCreatedBy);
+            .insert(dataToInsertWithCreatedBy)
+            .select();
+          console.log('Insert result (with course):', data, error);
           
           // If error, try without created_by
           if (error) {
               console.log('Error inserting course with created_by, trying without...', error);
-              const { error: errorWithoutCreatedBy } = await supabaseInternal
+              const { data: dataWithoutCreatedBy, error: errorWithoutCreatedBy } = await supabaseInternal
                   .from('employee_training_records')
-                  .insert(dataToInsertBase);
+                  .insert(dataToInsertBase)
+                  .select();
+              console.log('Insert result without created_by (with course):', dataWithoutCreatedBy, errorWithoutCreatedBy);
               if (errorWithoutCreatedBy) throw errorWithoutCreatedBy;
           }
         }
@@ -1327,10 +1377,21 @@ const saveRecord = async () => {
     }
 
     closeSidebar()
+    
+    // Check re_courses table
+    const { data: reCoursesData, error: reCoursesError } = await supabaseInternal
+      .from('re_courses')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    
+    console.log('re_courses data:', reCoursesData)
+    console.log('re_courses error:', reCoursesError)
+    
     fetchRecords()
     Swal.fire({
       title: 'บันทึกสำเร็จ!',
-      text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+      text: `บันทึกข้อมูลเรียบร้อยแล้ว (สถานะ: ${autoStatusCard})`,
       icon: 'success',
       customClass: {
         popup: '!p-3 !max-w-md',
@@ -1625,6 +1686,7 @@ const confirmImportData = async () => {
       const recordDataBase = {
         group: (row['กลุ่ม'] || '').trim() || null,
         id_tdl: (row['รหัส TDL'] || '').trim() || null,
+        employee_id: (row['รหัสล้านช้าง'] || '').trim() || null,
         first_name: firstName.trim(), // ไม่มี || null ต้องมีค่า!
         last_name: lastName.trim(),   // ไม่มี || null ต้องมีค่า!
         gender: (row['เพศ'] || '').trim() || null,
@@ -1776,7 +1838,7 @@ const parseExcelDate = (dateValue) => {
   if (!dateStr) return null;
   
   // ถ้าเป็นรูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
-  const slashMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const slashMatch = dateStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (slashMatch) {
     const day = String(slashMatch[1]).padStart(2, '0');
     const month = String(slashMatch[2]).padStart(2, '0');
@@ -1785,7 +1847,7 @@ const parseExcelDate = (dateValue) => {
   }
   
   // ถ้าเป็นรูปแบบ YYYY-MM-DD อยู่แล้ว
-  const isoMatch = dateStr.match(/^(\d{4})\-(\d{1,2})\-(\d{1,2})$/);
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (isoMatch) {
     const year = isoMatch[1];
     const month = String(isoMatch[2]).padStart(2, '0');
@@ -1829,6 +1891,7 @@ const downloadExcelTemplate = () => {
     {
       'กลุ่ม': 'A',
       'รหัส TDL': 'TDL001',
+      'รหัสล้านช้าง': 'LXML001',
       'ชื่อ': 'สมศักดิ์',
       'นามสกุล': 'ใจดี',
       'เพศ': 'ชาย',
@@ -1852,6 +1915,7 @@ const downloadExcelTemplate = () => {
   worksheet['!cols'] = [
     { wch: 15 }, // กลุ่ม
     { wch: 15 }, // รหัส TDL
+    { wch: 15 }, // รหัสล้านช้าง
     { wch: 20 }, // ชื่อ
     { wch: 20 }, // นามสกุล
     { wch: 10 }, // เพศ
@@ -1904,6 +1968,7 @@ const exportToExcel = () => {
         exportData.push({
           'กลุ่ม': record.group || '',
           'รหัส TDL': record.id_tdl || '',
+          'รหัสล้านช้าง': record.employee_id || '',
           'ชื่อ': record.first_name || '',
           'นามสกุล': record.last_name || '',
           'เพศ': record.gender || '',
@@ -1948,6 +2013,7 @@ const exportToExcel = () => {
   worksheet['!cols'] = [
     { wch: 15 }, // กลุ่ม
     { wch: 15 }, // รหัส TDL
+    { wch: 15 }, // รหัสล้านช้าง
     { wch: 20 }, // ชื่อ
     { wch: 20 }, // นามสกุล
     { wch: 10 }, // เพศ
@@ -2106,8 +2172,9 @@ watch(() => formData.value.id_tdl, (newVal) => {
             <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10"></th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
-              <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
-              <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+          <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+          <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
+          <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
               <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">แผนก</th>
@@ -2149,6 +2216,9 @@ watch(() => formData.value.id_tdl, (newVal) => {
                   </td>
                   <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                     {{ record.id_tdl || '-' }}
+                  </td>
+                  <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    {{ record.employee_id || '-' }}
                   </td>
                   <td class="px-3 py-4 whitespace-nowrap">
                     <div class="text-sm font-bold text-gray-900 dark:text-white">
@@ -2433,7 +2503,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
               type="text"
               @click="handleTdlInputClick"
               @input="showTdlDropdown = true"
-              placeholder="ค้นหารหัสล้านช้าง..."
+              placeholder="ค้นหารหัส TDL หรือ id_lxml..."
               class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
             <!-- Dropdown list -->
@@ -2444,8 +2514,11 @@ watch(() => formData.value.id_tdl, (newVal) => {
                 @click="selectEmployee(emp)"
                 class="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
               >
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ emp.employee_code }}</span>
+                <div class="flex flex-col">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">{{ emp.employee_code }}</span>
+                    <span v-if="emp.id_lxml" class="text-xs text-gray-500 dark:text-gray-400">{{ emp.id_lxml }}</span>
+                  </div>
                   <span class="text-sm text-gray-500 dark:text-gray-400">{{ emp.fullname || `${emp.firstname} ${emp.lastname}` }}</span>
                 </div>
               </div>
@@ -2454,6 +2527,8 @@ watch(() => formData.value.id_tdl, (newVal) => {
               </div>
             </div>
           </div>
+
+          <input v-model="formData.employee_id" type="hidden" />
 
           <!-- กลุ่มและเพศคู่กัน -->
           <div class="grid grid-cols-2 gap-4">
@@ -2675,7 +2750,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
   :value="course.course_name || courseSearchQueries[index] || ''"
   @focus="() => { setCourseDropdownOpen(index, true); }"
   @input="(e) => { setCourseSearchQuery(index, e.target.value); course.course_name = ''; setCourseDropdownOpen(index, true); }"
-  @blur="setTimeout(() => setCourseDropdownOpen(index, false), 200)"
+  @blur="handleCourseDropdownBlur(index)"
   placeholder="ค้นหาหรือเลือกหลักสูตร..."
   class="w-full px-3 py-2 pr-10 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
 />
@@ -2696,8 +2771,9 @@ watch(() => formData.value.id_tdl, (newVal) => {
                         <div
                           v-for="c in getFilteredCourses(courseSearchQueries[index])"
                           :key="c.id"
-                          @click="() => {
+                          @mousedown.prevent="() => {
                             course.course_name = c.course_name;
+                            courseSearchQueries[index] = c.course_name;
                             showCourseDropdowns[index] = false;
                           }"
                           class="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors text-sm"
@@ -2785,6 +2861,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
                   <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10"></th>
                   <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
                   <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+                  <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
                   <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
                   <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
                   <th class="px-3 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
@@ -2811,6 +2888,9 @@ watch(() => formData.value.id_tdl, (newVal) => {
                     </td>
                     <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                       {{ employee['รหัส TDL'] || '-' }}
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {{ employee['รหัสล้านช้าง'] || '-' }}
                     </td>
                     <td class="px-3 py-4 whitespace-nowrap">
                       <div class="text-sm font-bold text-gray-900 dark:text-white">

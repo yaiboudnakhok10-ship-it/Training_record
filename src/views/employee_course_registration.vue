@@ -27,6 +27,7 @@ const filteredEmployees = computed(() => {
   const query = tdlSearchQuery.value.toLowerCase()
   return employees.value.filter(emp => 
     emp.employee_code?.toLowerCase().includes(query) ||
+    emp.id_lxml?.toLowerCase().includes(query) ||
     emp.fullname?.toLowerCase().includes(query) ||
     emp.firstname?.toLowerCase().includes(query) ||
     emp.lastname?.toLowerCase().includes(query)
@@ -45,6 +46,7 @@ const filteredCourses = computed(() => {
 const formData = ref({
   group_name: '',
   tdl_code: '',
+  id_lxml: '',
   full_name: '',
   gender: '',
   position: '',
@@ -133,10 +135,12 @@ const fetchEmployees = async () => {
   }
 }
 
-// ฟังก์ชันเติมข้อมูลพนักงานอัตโนมัติเมื่อเลือกรหัส TDL
-const fillEmployeeData = (tdlCode) => {
-  const employee = employees.value.find(emp => emp.employee_code === tdlCode)
+// ฟังก์ชันเติมข้อมูลพนักงานอัตโนมัติเมื่อเลือกรหัส TDL หรือ id_lxml
+const fillEmployeeData = (code) => {
+  const employee = employees.value.find(emp => emp.employee_code === code || emp.id_lxml === code)
   if (employee) {
+    formData.value.tdl_code = employee.employee_code || ''
+    formData.value.id_lxml = employee.id_lxml || ''
     if (employee.fullname) {
       fullNameInput.value = employee.fullname
     } else {
@@ -166,9 +170,10 @@ const fillEmployeeData = (tdlCode) => {
 
 const selectEmployee = (employee) => {
   formData.value.tdl_code = employee.employee_code
-  tdlSearchQuery.value = employee.fullname || `${employee.firstname} ${employee.lastname}` || employee.employee_code
+  formData.value.id_lxml = employee.id_lxml || ''
+  tdlSearchQuery.value = employee.fullname || `${employee.firstname} ${employee.lastname}` || employee.employee_code || employee.id_lxml
   showTdlDropdown.value = false
-  fillEmployeeData(employee.employee_code)
+  fillEmployeeData(employee.employee_code || employee.id_lxml)
 }
 
 const handleTdlInputClick = () => {
@@ -225,6 +230,7 @@ const filteredRecords = computed(() => {
   return records.value.filter(record => 
     record.full_name?.toLowerCase().includes(query) ||
     record.tdl_code?.toLowerCase().includes(query) ||
+    record.id_lxml?.toLowerCase().includes(query) ||
     record.course_name?.toLowerCase().includes(query) ||
     record.department?.toLowerCase().includes(query)
   )
@@ -238,6 +244,7 @@ const openAddForm = () => {
   formData.value = {
     group_name: '',
     tdl_code: '',
+    id_lxml: '',
     full_name: '',
     gender: '',
     position: '',
@@ -259,12 +266,13 @@ const openEditForm = (record) => {
   if (record.courses && record.courses.length > 0) {
     coursesList = [...record.courses]
   } else if (record.course_name) {
-    coursesList = record.course_name.split(/[,，]/).map(c => c.trim()).filter(c => c)
+    coursesList = record.course_name.split(/[,،]/).map(c => c.trim()).filter(c => c)
   }
   
   formData.value = {
     group_name: record.group_name || '',
     tdl_code: record.tdl_code || '',
+    id_lxml: record.id_lxml || '',
     full_name: record.full_name || '',
     gender: record.gender || '',
     position: record.position || '',
@@ -283,6 +291,7 @@ const clearForm = () => {
   formData.value = {
     group_name: '',
     tdl_code: '',
+    id_lxml: '',
     full_name: '',
     gender: '',
     position: '',
@@ -320,6 +329,7 @@ const saveRecord = async () => {
         .update({
           group_name: formData.value.group_name.trim() || null,
           tdl_code: formData.value.tdl_code.trim() || null,
+          id_lxml: formData.value.id_lxml.trim() || null,
           full_name: formData.value.full_name.trim(),
           gender: formData.value.gender.trim() || null,
           position: formData.value.position.trim() || null,
@@ -338,6 +348,7 @@ const saveRecord = async () => {
         .insert({
           group_name: formData.value.group_name.trim() || null,
           tdl_code: formData.value.tdl_code.trim() || null,
+          id_lxml: formData.value.id_lxml.trim() || null,
           full_name: formData.value.full_name.trim(),
           gender: formData.value.gender.trim() || null,
           position: formData.value.position.trim() || null,
@@ -500,13 +511,13 @@ onUnmounted(() => {
           
           <div class="space-y-4">
             <div class="relative" ref="tdlDropdownRef">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รหัส TDL</label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รหัส TDL / รหัสล้านช้าง</label>
               <input
                 v-model="tdlSearchQuery"
                 type="text"
                 @click="handleTdlInputClick"
                 @input="showTdlDropdown = true"
-                placeholder="ค้นหารหัส TDL..."
+                placeholder="ค้นหารหัส TDL หรือ id_lxml..."
                 class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
               <div v-if="showTdlDropdown" class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg max-h-60 overflow-y-auto">
@@ -517,7 +528,10 @@ onUnmounted(() => {
                   class="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                 >
                   <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">{{ emp.employee_code }}</span>
+                    <div class="flex flex-col">
+                      <span class="text-sm font-medium text-gray-900 dark:text-white">{{ emp.employee_code }}</span>
+                      <span v-if="emp.id_lxml" class="text-xs text-gray-500 dark:text-gray-400">id_lxml: {{ emp.id_lxml }}</span>
+                    </div>
                     <span class="text-sm text-gray-500 dark:text-gray-400">{{ emp.fullname || `${emp.firstname} ${emp.lastname}` }}</span>
                   </div>
                 </div>
@@ -525,6 +539,17 @@ onUnmounted(() => {
                   ไม่พบข้อมูลพนักงาน
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">รหัสล้านช้าง</label>
+              <input
+                v-model="formData.id_lxml"
+                type="text"
+                readonly
+                class="w-full px-4 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                placeholder="รหัสล้านช้าง จะแสดงอัตโนมัติ"
+              />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -714,6 +739,7 @@ onUnmounted(() => {
                   <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10"></th>
                   <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
                   <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+                  <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
                   <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
                   <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
                   <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
@@ -726,13 +752,13 @@ onUnmounted(() => {
               <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
                 <template v-if="loading">
                   <tr v-for="i in 5" :key="i" class="animate-pulse">
-                    <td colspan="10" class="px-4 py-4">
+                    <td colspan="11" class="px-4 py-4">
                       <div class="h-10 bg-gray-100 dark:bg-gray-900 rounded-lg w-full"></div>
                     </td>
                   </tr>
                 </template>
                 <tr v-else-if="filteredRecords.length === 0" class="text-center">
-                  <td colspan="10" class="px-4 py-12 text-gray-500 dark:text-gray-400 italic">
+                  <td colspan="11" class="px-4 py-12 text-gray-500 dark:text-gray-400 italic">
                     ไม่พบข้อมูล
                   </td>
                 </tr>
@@ -759,6 +785,9 @@ onUnmounted(() => {
                       </td>
                       <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                         {{ record.tdl_code || '-' }}
+                      </td>
+                      <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                        {{ record.id_lxml || '-' }}
                       </td>
                       <td class="px-4 py-4 whitespace-nowrap">
                         <div class="text-sm font-bold text-gray-900 dark:text-white">
@@ -806,7 +835,7 @@ onUnmounted(() => {
                     </tr>
                     <!-- Expanded row for courses -->
                     <tr v-if="expandedRow === record.id" class="bg-gray-50/50 dark:bg-gray-900/30">
-                      <td colspan="10" class="px-4 py-4">
+                      <td colspan="11" class="px-4 py-4">
                         <div class="space-y-2">
                           <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">หลักสูตรที่ลงทะเบียน</h4>
                           <div class="flex flex-wrap gap-2">

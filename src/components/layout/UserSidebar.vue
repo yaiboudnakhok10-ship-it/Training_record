@@ -50,6 +50,14 @@ const menuGroups = [
     ]
   },
   {
+    label: "การประเมิน",
+    items: [
+      { id: "training-record", icon: CalendarIcon, label: "บันทืกการประเมิน" },
+      { id: "employee-courses", icon: ClipboardDocumentCheckIcon, label: "ประเภทการประเมิน" },
+      { id: "employee-training", icon: ClipboardDocumentListIcon, label: "Recerd Accident Re-Training" },
+    ]
+  },
+  {
     label: "สถานะพนักงาน",
     items: [
       { id: "search", icon: CheckCircleIcon, label: "พนักงานที่ได้บัตแล้ว" },
@@ -153,7 +161,12 @@ const closeMobile = () => {
 
       <!-- Main Menu -->
       <template v-for="group in menuGroups" :key="group.label">
-        <UserMenuGroup :label="group.label" :collapsed="collapsed">
+        <UserMenuGroup 
+          :label="group.label" 
+          :collapsed="collapsed" 
+          :collapsible="group.label === 'สถานะพนักงาน'"
+          :default-open="group.label !== 'สถานะพนักงาน'"
+        >
           <UserMenuItem
             v-for="item in group.items"
             :key="item.id"

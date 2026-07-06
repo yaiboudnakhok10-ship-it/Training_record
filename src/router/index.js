@@ -9,14 +9,14 @@ import EmployeeTrainingRecordsView from '../views/employee_training_records.vue'
 import Status_cardView from '../views/Status_cardView.vue'
 import Status_coursesView from '../views/Status_coursesView.vue'
 import DashboardView from '../views/dashboardView.vue'
-import StudentView from '../views/StudentView.vue'
-import EmployeeCoursesView from '../views/employee_coursesView.vue'
+import EvaluationTopicsView from '../views/evaluation_topicsView.vue'
+import EvaluationsView from '../views/evaluationsView.vue'
 import LogView from '../views/LogView.vue'
-import ReView from '../views/ReView.vue'
 import EmployeeCourseRegistrationView from '../views/employee_course_registration.vue'
 import RegistrationView from '../views/registrationView.vue'
 import HealthCheckView from '../views/health_checkView.vue'
 import EmployeeOneView from '../views/employee_one.vue'
+import AccidentRetrainingRecordsView from '../views/accident_retraining_recordsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -43,12 +43,12 @@ const router = createRouter({
         {
           path: 'training-record',
           name: 'training-record',
-          component: StudentView
+          component: EvaluationsView
         },
         {
           path: 'employee-courses',
           name: 'employee-courses',
-          component: EmployeeCoursesView
+          component: EvaluationTopicsView
         },
         {
           path: 'employees',
@@ -66,10 +66,10 @@ const router = createRouter({
           component: EmployeeTrainingView
         },
         {
-          path: 'employee-training',
-          name: 'employee-training',
-          component: ReView
-        },
+              path: 'employee-training',
+              name: 'employee-training',
+              component: AccidentRetrainingRecordsView
+            },
         {
           path: 'search',
           name: 'search',
