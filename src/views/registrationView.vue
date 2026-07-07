@@ -266,6 +266,7 @@ const saveCourse = async () => {
     const recordsToInsert = selectedEmployeeData.map(emp => ({
       group_name: emp.group_name || null,
       tdl_code: emp.tdl_code || emp.employee_code || null,
+      id_lxml: emp.id_lxml || null,
       full_name: emp.full_name || emp.fullname || `${emp.firstname || ''} ${emp.lastname || ''}`.trim(),
       gender: emp.gender || null,
       position: emp.position || null,
@@ -288,6 +289,7 @@ const saveCourse = async () => {
       return {
         group: emp.group_name || null,
         id_tdl: emp.tdl_code || emp.employee_code || null,
+        employee_id: emp.id_lxml || null,
         first_name: firstName,
         last_name: lastName,
         position: emp.position || null,
@@ -1001,6 +1003,7 @@ onUnmounted(() => {
                         <th class="px-3 py-2 w-10"></th>
                         <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">ชื่อ-นามสกุล</th>
                         <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">รหัส TDL</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">รหัสล้านช้าง</th>
                         <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">แผนก</th>
                       </tr>
                     </thead>
@@ -1028,6 +1031,7 @@ onUnmounted(() => {
                         </td>
                         <td class="px-3 py-2 text-sm text-gray-900 dark:text-white">{{ emp.full_name }}</td>
                         <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.tdl_code || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.id_lxml || '-' }}</td>
                         <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.department || '-' }}</td>
                       </tr>
                     </tbody>
@@ -1231,34 +1235,36 @@ onUnmounted(() => {
                 <div v-else class="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
                   <div class="overflow-x-auto">
                     <table class="w-full text-left">
-                      <thead class="bg-gray-50 dark:bg-gray-800 sticky top-0">
-                        <tr>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">กลุ่ม</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">รหัส TDL</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">ชื่อ-นามสกุล</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">เพศ</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">ตำแหน่ง</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">แผนก</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">สัญชาติ</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">สถานะ</th>
-                          <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase w-10"></th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                        <tr
-                          v-for="emp in viewingCourse.employees"
-                          :key="emp.id"
-                          class="hover:bg-gray-50 dark:hover:bg-gray-800"
-                        >
-                          <td class="px-3 py-2 text-sm text-gray-900 dark:text-white">{{ emp.group_name || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.tdl_code || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-900 dark:text-white">{{ emp.full_name || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.gender || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.position || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.department || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.nationality || '-' }}</td>
-                          <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.status || '-' }}</td>
-                          <td class="px-3 py-2 text-right">
+                    <thead class="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                      <tr>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">กลุ่ม</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">รหัส TDL</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">รหัสล้านช้าง</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">ชื่อ-นามสกุล</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">เพศ</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">ตำแหน่ง</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">แผนก</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">สัญชาติ</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">สถานะ</th>
+                        <th class="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                      <tr
+                        v-for="emp in viewingCourse.employees"
+                        :key="emp.id"
+                        class="hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <td class="px-3 py-2 text-sm text-gray-900 dark:text-white">{{ emp.group_name || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.tdl_code || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.id_lxml || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-900 dark:text-white">{{ emp.full_name || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.gender || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.position || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.department || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.nationality || '-' }}</td>
+                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{{ emp.status || '-' }}</td>
+                        <td class="px-3 py-2 text-right">
                             <button
                               @click="deleteEmployeeFromCourse(emp)"
                               class="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

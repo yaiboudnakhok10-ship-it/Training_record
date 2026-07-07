@@ -43,6 +43,7 @@ const fetchReRecords = async () => {
           record_ids: [record.id],
           group: record.group_name,
           id_tdl: record.tdl_code,
+          id_lxml: record.id_lxml,
           full_name: record.full_name,
           first_name: record.full_name?.split(' ')[0] || '',
           last_name: record.full_name?.split(' ').slice(1).join(' ') || '',
@@ -150,7 +151,8 @@ const applyFilters = () => {
   filteredRecords.value = reRecords.value.filter(record => {
     const matchesQuery = !query || (
       record.full_name?.toLowerCase().includes(query) ||
-      record.id_tdl?.toLowerCase().includes(query)
+      record.id_tdl?.toLowerCase().includes(query) ||
+      record.id_lxml?.toLowerCase().includes(query)
     )
     const matchesDept = !dept || record.department === dept
     return matchesQuery && matchesDept
@@ -201,6 +203,7 @@ const downloadExcel = () => {
         rows.push({
           'กลุ่ม': record.group || '-',
           'รหัส TDL': record.id_tdl || '-',
+          'รหัสล้านช้าง': record.id_lxml || '-',
           'ชื่อ-นามสกุล': record.full_name || '-',
           'เพศ': record.gender || '-',
           'ตำแหน่ง': record.position || '-',
@@ -217,6 +220,7 @@ const downloadExcel = () => {
       rows.push({
         'กลุ่ม': record.group || '-',
         'รหัส TDL': record.id_tdl || '-',
+        'รหัสล้านช้าง': record.id_lxml || '-',
         'ชื่อ-นามสกุล': record.full_name || '-',
         'เพศ': record.gender || '-',
         'ตำแหน่ง': record.position || '-',
@@ -233,7 +237,7 @@ const downloadExcel = () => {
 
   const worksheet = XLSX.utils.json_to_sheet(rows)
   worksheet['!cols'] = [
-    { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 18 },
+    { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 18 },
     { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 12 }
   ]
 
@@ -285,7 +289,7 @@ onMounted(() => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="ค้นหา: รหัส TDL, ชื่อ..."
+              placeholder="ค้นหา: รหัส TDL, รหัสล้านช้าง, ชื่อ..."
               class="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               @keyup.enter="searchRecords"
             />
@@ -337,6 +341,7 @@ onMounted(() => {
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10"></th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
@@ -366,6 +371,7 @@ onMounted(() => {
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">{{ record.group || '-' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.id_tdl || '-' }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.id_lxml || '-' }}</td>
                 <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ record.full_name || '-' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.gender || '-' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.position || '-' }}</td>
@@ -390,7 +396,7 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="expandedRecordId === record.id" class="bg-gray-50/30 dark:bg-gray-900/30">
-                <td colspan="10" class="px-6 py-4">
+                <td colspan="11" class="px-6 py-4">
                   <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                       <thead>

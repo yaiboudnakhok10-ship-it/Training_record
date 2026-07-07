@@ -524,6 +524,7 @@ const fetchRecords = async () => {
         const reCourseData = {
           group_name: record.group,
           tdl_code: record.id_tdl,
+          id_lxml: record.employee_id,
           full_name: fullName,
           gender: record.gender,
           position: record.position,
@@ -591,6 +592,7 @@ const fetchRecords = async () => {
         const healthCheckData = {
           group_name: record.group,
           tdl_code: record.id_tdl,
+          id_lxml: record.employee_id,
           full_name: fullName,
           gender: record.gender,
           position: record.position,
@@ -945,6 +947,7 @@ const archiveHealthCheck = async (record) => {
         const healthCheckData = {
           group_name: originalData.group,
           tdl_code: originalData.id_tdl,
+          id_lxml: originalData.employee_id,
           full_name: fullName,
           gender: originalData.gender,
           position: originalData.position,

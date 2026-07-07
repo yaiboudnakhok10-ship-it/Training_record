@@ -17,6 +17,8 @@ import RegistrationView from '../views/registrationView.vue'
 import HealthCheckView from '../views/health_checkView.vue'
 import EmployeeOneView from '../views/employee_one.vue'
 import AccidentRetrainingRecordsView from '../views/accident_retraining_recordsView.vue'
+import ReView from '../views/ReView.vue'
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -109,7 +111,12 @@ const router = createRouter({
           path: 'employee-one',
           name: 'employee-one',
           component: EmployeeOneView
-        }
+        },
+        {
+          path: 'review',
+          name: 'review',
+          component: ReView
+        },
       ]
     }
   ]

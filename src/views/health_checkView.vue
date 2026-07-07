@@ -76,7 +76,8 @@ const applyFilters = () => {
   filteredRecords.value = healthRecords.value.filter(record => {
     const matchesQuery = !query || (
       record.full_name?.toLowerCase().includes(query) ||
-      record.tdl_code?.toLowerCase().includes(query)
+      record.tdl_code?.toLowerCase().includes(query) ||
+      record.id_lxml?.toLowerCase().includes(query)
     )
     const matchesDept = !dept || record.department === dept
     return matchesQuery && matchesDept
@@ -142,6 +143,7 @@ const downloadExcel = () => {
   const rows = filteredRecords.value.map(record => ({
     'กลุ่ม': record.group_name || '-',
     'รหัส TDL': record.tdl_code || '-',
+    'รหัสล้านช้าง': record.id_lxml || '-',
     'ชื่อ-นามสกุล': record.full_name || '-',
     'เพศ': record.gender || '-',
     'ตำแหน่ง': record.position || '-',
@@ -155,7 +157,7 @@ const downloadExcel = () => {
 
   const worksheet = XLSX.utils.json_to_sheet(rows)
   worksheet['!cols'] = [
-    { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 18 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 18 },
     { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 14 }
   ]
 
@@ -207,7 +209,7 @@ onMounted(() => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="ค้นหา: รหัส TDL, ชื่อ..."
+              placeholder="ค้นหา: รหัส TDL, รหัสล้านช้าง, ชื่อ..."
               class="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               @keyup.enter="searchRecords"
             />
@@ -255,9 +257,10 @@ onMounted(() => {
       <div v-else class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
+            <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-80">
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
@@ -274,6 +277,7 @@ onMounted(() => {
             <tr v-for="record in filteredRecords" :key="record.id" class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors">
               <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">{{ record.group_name || '-' }}</td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.tdl_code || '-' }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.id_lxml || '-' }}</td>
               <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ record.full_name || '-' }}</td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.gender || '-' }}</td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ record.position || '-' }}</td>

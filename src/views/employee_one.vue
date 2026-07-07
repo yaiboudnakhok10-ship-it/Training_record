@@ -40,6 +40,7 @@ const filteredEmployeeList = computed(() => {
     result = result.filter(emp => 
       emp.full_name?.toLowerCase().includes(query) ||
       emp.tdl_code?.toLowerCase().includes(query) ||
+      emp.id_lxml?.toLowerCase().includes(query) ||
       emp.department?.toLowerCase().includes(query)
     )
   }
@@ -153,6 +154,7 @@ const fetchEmployeeData = async (employee) => {
       employeeData.value = {
         group_name: firstRegRecord.group_name,
         tdl_code: firstRegRecord.tdl_code,
+        id_lxml: firstRegRecord.id_lxml,
         full_name: firstRegRecord.full_name,
         position: firstRegRecord.position,
         department: firstRegRecord.department,
@@ -303,7 +305,7 @@ onMounted(async () => {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="ค้นหาชื่อ, รหัส TDL..."
+            placeholder="ค้นหาชื่อ, รหัส TDL, รหัสล้านช้าง..."
             class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
           />
         </div>
@@ -327,6 +329,7 @@ onMounted(async () => {
             <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
               <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
@@ -336,7 +339,7 @@ onMounted(async () => {
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
             <tr v-if="filteredEmployeeList.length === 0" class="text-center">
-              <td colspan="7" class="px-4 py-12 text-gray-500 dark:text-gray-400 italic">
+              <td colspan="8" class="px-4 py-12 text-gray-500 dark:text-gray-400 italic">
                 ไม่พบข้อมูล
               </td>
             </tr>
@@ -351,6 +354,9 @@ onMounted(async () => {
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                 {{ employee.tdl_code || '-' }}
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                {{ employee.id_lxml || '-' }}
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
                 {{ employee.full_name }}
@@ -394,6 +400,10 @@ onMounted(async () => {
           <div class="flex justify-between items-center">
             <span class="text-sm text-gray-600 dark:text-gray-400">รหัส TDL</span>
             <span class="text-sm font-medium text-gray-900 dark:text-white">{{ employeeData?.id_tdl || employeeData?.tdl_code || '-' }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600 dark:text-gray-400">รหัสล้านช้าง</span>
+            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ employeeData?.employee_id || employeeData?.id_lxml || '-' }}</span>
           </div>
           <div class="flex justify-between items-center">
             <span class="text-sm text-gray-600 dark:text-gray-400">ชื่อ-นามสกุล</span>

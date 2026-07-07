@@ -39,6 +39,7 @@ const fetchRecords = async () => {
           id: record.id,
           group: record.group,
           id_tdl: record.id_tdl,
+          id_lxml: record.employee_id,
           first_name: record.first_name,
           last_name: record.last_name,
           position: record.position,
@@ -109,6 +110,7 @@ const filteredRecords = computed(() => {
     rec.first_name?.toLowerCase().includes(query) ||
     rec.last_name?.toLowerCase().includes(query) ||
     rec.id_tdl?.toLowerCase().includes(query) ||
+    rec.id_lxml?.toLowerCase().includes(query) ||
     rec.position?.toLowerCase().includes(query) ||
     rec.department?.toLowerCase().includes(query)
   )
@@ -156,7 +158,7 @@ onMounted(() => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="ค้นหาชื่อ, รหัส, ตำแหน่ง..."
+          placeholder="ค้นหาชื่อ, รหัส TDL, รหัสล้านช้าง, ตำแหน่ง..."
           class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
         />
       </div>
@@ -182,6 +184,7 @@ onMounted(() => {
               <th class="px-4 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-12"></th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัส TDL</th>
+              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เพศ</th>
               <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
@@ -193,13 +196,13 @@ onMounted(() => {
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
             <template v-if="loading">
               <tr v-for="i in 5" :key="i" class="animate-pulse">
-                <td :colspan="9" class="px-6 py-4">
+                <td :colspan="10" class="px-6 py-4">
                   <div class="h-10 bg-gray-100 dark:bg-gray-900 rounded-lg w-full"></div>
                 </td>
               </tr>
             </template>
             <tr v-else-if="filteredRecords.length === 0" class="text-center">
-              <td :colspan="9" class="px-6 py-12 text-gray-500 dark:text-gray-400 italic">
+              <td :colspan="10" class="px-6 py-12 text-gray-500 dark:text-gray-400 italic">
                 ไม่พบข้อมูล
               </td>
             </tr>
@@ -227,6 +230,9 @@ onMounted(() => {
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                     {{ record.id_tdl || '-' }}
                   </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    {{ record.id_lxml || '-' }}
+                  </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-bold text-gray-900 dark:text-white">
                       {{ record.first_name }} {{ record.last_name }}
@@ -252,7 +258,7 @@ onMounted(() => {
                 </tr>
                 <!-- Expandable Section - Course Details -->
                 <tr v-if="expandedRecordId === record.id" class="bg-gray-50/30 dark:bg-gray-900/30">
-                  <td :colspan="9" class="px-6 py-4">
+                  <td :colspan="10" class="px-6 py-4">
                     <div class="space-y-3">
                       <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">รายการหลักสูตร</h4>
                       <div v-if="record.courses.filter(c => c.status === 'ผ่านแล้ว').length > 0" class="overflow-x-auto">

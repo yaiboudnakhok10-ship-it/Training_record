@@ -69,12 +69,19 @@ const filteredEmployees = () => {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(emp => 
       emp.employee_code?.toLowerCase().includes(query) ||
+      emp.id_lxml?.toLowerCase().includes(query) ||
       emp.fullname?.toLowerCase().includes(query) ||
       emp.firstname?.toLowerCase().includes(query) ||
       emp.lastname?.toLowerCase().includes(query) ||
+      emp.eng_name?.toLowerCase().includes(query) ||
+      emp.lao_name?.toLowerCase().includes(query) ||
+      emp.pn?.toLowerCase().includes(query) ||
       emp.position?.toLowerCase().includes(query) ||
       emp.department?.toLowerCase().includes(query) ||
-      emp.project?.toLowerCase().includes(query)
+      emp.project?.toLowerCase().includes(query) ||
+      emp.company?.toLowerCase().includes(query) ||
+      emp.tel?.toLowerCase().includes(query) ||
+      emp.ssno?.toLowerCase().includes(query)
     )
   }
 
@@ -129,6 +136,16 @@ const getStatusClass = (emp) => {
   }
 }
 
+// ฟังก์ชันแปลงวันที่ให้เป็นรูปแบบ dd/mm/yyyy
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
 onMounted(() => {
   fetchEmployees()
 })
@@ -158,7 +175,7 @@ onMounted(() => {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="ค้นหาชื่อ, รหัสพนักงาน, โครงการ..."
+            placeholder="ค้นหาชื่อ, รหัสพนักงาน, รหัสล้านช้าง, โครงการ, เบอร์โทร..."
             class="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
           />
         </div>
@@ -180,24 +197,46 @@ onMounted(() => {
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
-              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">พนักงาน</th>
-              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสพนักงาน</th>
-              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">แผนก / โครงการ</th>
-              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
-              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันที่เริ่มงาน</th>
-              <th class="px-6 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">สถานะ</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสพนักงาน</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">รหัสล้านช้าง</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่ออังกฤษ</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ชื่อลาว</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PN</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันเกิด</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">อายุ</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">SSNO</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">เบอร์โทร</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ตำแหน่ง</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">แผนก</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">โครงการ</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">บริษัท</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">กลุ่ม</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ประเภทงาน</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">สถานะ</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันเริ่มงาน</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันสิ้นสุดสัญญา</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันลาออกจริง</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ประสบการณ์</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PA45D</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PA90D</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PA119D</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ที่อยู่</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">หมู่บ้าน</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">อำเภอ</th>
+              <th class="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">จังหวัด</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
             <template v-if="loading">
               <tr v-for="i in 3" :key="i" class="animate-pulse">
-                <td colspan="6" class="px-6 py-4">
+                <td colspan="28" class="px-4 py-3">
                   <div class="h-10 bg-gray-100 dark:bg-gray-900 rounded-lg w-full"></div>
                 </td>
               </tr>
             </template>
             <tr v-else-if="filteredEmployees().length === 0" class="text-center">
-              <td colspan="6" class="px-6 py-12 text-gray-500 dark:text-gray-400 italic">
+              <td colspan="28" class="px-4 py-12 text-gray-500 dark:text-gray-400 italic">
                 ไม่พบข้อมูลพนักงาน
               </td>
             </tr>
@@ -206,39 +245,43 @@ onMounted(() => {
               :key="emp.id"
               class="hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors group"
             >
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div>
-                  <div class="text-sm font-bold text-gray-900 dark:text-white">
-                    {{ getEmployeeName(emp) }}
-                  </div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ getEmployeeLaoName(emp) }}
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-400">
-                {{ emp.employee_code }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900 dark:text-white">{{ emp.department || '-' }}</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">{{ emp.project || '-' }}</div>
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-[150px] break-words">
-                {{ emp.position || '-' }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                {{ getStartDate(emp) }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.employee_code || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.id_lxml || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ getEmployeeName(emp) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.eng_name || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.lao_name || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.pn || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.dob) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.age || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.ssno || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.tel || '-' }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-[150px] break-words">{{ emp.position || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.department || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.project || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.company || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.group_type || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.type_of_work || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
                 <span 
                   :class="[
-                    'px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider',
+                    'px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
                     getStatusClass(emp)
                   ]"
                 >
                   {{ getEmployeeStatus(emp) }}
                 </span>
               </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.start_date) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.end_date) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.real_resigned) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.experience || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.pa45d) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.pa90d) }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ formatDate(emp.pa119d) }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] break-words">{{ emp.address || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.village || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.district || '-' }}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ emp.province || '-' }}</td>
             </tr>
           </tbody>
         </table>
