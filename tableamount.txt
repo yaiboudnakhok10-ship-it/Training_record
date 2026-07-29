@@ -179,3 +179,103 @@ create table public.health_check (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+
+create table public.evaluations (
+  id uuid primary key default gen_random_uuid(),
+  employee_code text not null,          -- รหัสพนักงาน
+  full_name text not null,              -- ชื่อ-นามสกุล
+  position text,                        -- ตำแหน่ง
+  department text,                      -- แผนก
+  evaluation_date date not null,        -- วันที่ประเมิน
+  evaluation_type text,                 -- ประเภทประเมิน
+  created_by text,                      -- ผู้บันทึก
+  created_at timestamptz not null default now(), -- วันที่เวลาบันทึก
+  updated_by text,                      -- ผู้แก้ไข
+  updated_at timestamptz not null default now()  -- วันที่เวลาแก้ไข
+);
+
+
+create table public.evaluation_topics (
+  id uuid primary key default gen_random_uuid(),
+  topic_name text not null,             -- ชื่อหัวข้อ
+  created_by text,                      -- ผู้บันทึก
+  created_at timestamptz not null default now(), -- วันที่เวลาบันทึก
+  updated_by text,                      -- ผู้แก้ไข
+  updated_at timestamptz not null default now()  -- วันที่เวลาแก้ไข
+);
+
+
+create table public.accident_retraining_records (
+  id uuid primary key default gen_random_uuid(),
+  employee_code text not null,          -- รหัสพนักงาน
+  full_name text not null,              -- ชื่อ-นามสกุล
+  position text,                        -- ตำแหน่ง
+  department text,                      -- แผนก
+  accident_detail text,                 -- รายละเอียดอุบัติเหตุ
+  retrain_date date,                    -- วันที่ retrain/ประเมิน
+  status text check (status in ('ผ่าน', 'ไม่ผ่าน')), -- สถานะ ผ่าน หรือ ไม่ผ่าน
+  remark text,                          -- หมายเหตุ
+  created_by text,                      -- ผู้บันทึก
+  created_at timestamptz not null default now(), -- วันที่เวลาบันทึก
+  updated_by text,                      -- ผู้แก้ไข
+  updated_at timestamptz not null default now()  -- วันที่เวลาแก้ไข
+);
+
+
+
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.employees (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_code text NOT NULL UNIQUE,
+  pn character varying,
+  firstname character varying,
+  lastname character varying,
+  fullname character varying,
+  eng_name character varying,
+  lao_name character varying,
+  dob date,
+  age integer,
+  ssno character varying,
+  tel character varying,
+  address text,
+  village character varying,
+  district character varying,
+  province character varying,
+  position character varying,
+  department character varying,
+  project character varying,
+  cost character varying,
+  company character varying,
+  group_type character varying,
+  type_of_work character varying,
+  status character varying,
+  start_date date,
+  end_date date,
+  real_resigned date,
+  experience character varying,
+  pa45d date,
+  pa90d date,
+  pa119d date,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  id_lxml text,
+  CONSTRAINT employees_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  employee_id uuid UNIQUE,
+  username text UNIQUE,
+  role text NOT NULL DEFAULT 'staff'::text CHECK (role = ANY (ARRAY['staff'::text, 'admin'::text, 'super_admin'::text])),
+  is_active boolean DEFAULT true,
+  last_login_at timestamp with time zone,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id),
+  CONSTRAINT profiles_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);

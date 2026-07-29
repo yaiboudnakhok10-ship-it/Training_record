@@ -3,8 +3,9 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { supabaseInternal } from '../server/supabase'
 import { supabaseExternal } from '../server/supabase_data'
 import { useAuth } from '../stores/auth'
-import { MagnifyingGlassIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/solid'
+import { MagnifyingGlassIcon, PlusIcon, PencilSquareIcon, TrashIcon, XMarkIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentIcon } from '@heroicons/vue/24/solid'
 import Swal from 'sweetalert2'
+import * as XLSX from 'xlsx'
 
 const auth = useAuth()
 const evaluations = ref([])
@@ -20,6 +21,9 @@ const tdlDropdownRef = ref(null)
 const selectedDepartment = ref('')
 const startDate = ref('')
 const endDate = ref('')
+const showDumpFileDropdown = ref(false)
+const dumpFileDropdownRef = ref(null)
+const fileInputRef = ref(null)
 
 const uniqueDepartments = computed(() => {
   const departments = new Set()
@@ -189,6 +193,321 @@ const handleClickOutside = (event) => {
   if (tdlDropdownRef.value && !tdlDropdownRef.value.contains(event.target)) {
     showTdlDropdown.value = false
   }
+  if (dumpFileDropdownRef.value && !dumpFileDropdownRef.value.contains(event.target)) {
+    showDumpFileDropdown.value = false
+  }
+}
+
+const normalizeExcelDateToISO = (value) => {
+  if (!value) return ''
+  if (value instanceof Date) return value.toISOString().split('T')[0]
+  if (typeof value === 'number' && !isNaN(value) && value > 0) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30))
+    const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000)
+    if (value >= 60) date.setUTCDate(date.getUTCDate() - 1)
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const str = String(value).trim()
+  if (!str) return ''
+
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (isoMatch) return str
+
+  const dmySlash = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmySlash) {
+    const day = String(dmySlash[1]).padStart(2, '0')
+    const month = String(dmySlash[2]).padStart(2, '0')
+    const year = dmySlash[3]
+    return `${year}-${month}-${day}`
+  }
+
+  const dmyDash = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (dmyDash) {
+    const day = String(dmyDash[1]).padStart(2, '0')
+    const month = String(dmyDash[2]).padStart(2, '0')
+    const year = dmyDash[3]
+    return `${year}-${month}-${day}`
+  }
+
+  const parsed = new Date(str)
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0]
+  return ''
+}
+
+const downloadExcelTemplate = () => {
+  const templateData = [
+    {
+      'รหัสพนักงาน': 'TDL001',
+      'รหัสล้านช้าง': 'LXML001',
+      'ชื่อ-นามสกุล': 'สมศักดิ์ ใจดี',
+      'ตำแหน่ง': 'พนักงาน',
+      'แผนก': 'ขาย',
+      'วันที่ประเมิน': '2026-01-01',
+      'ประเภทประเมิน': 'ทดสอบความรู้'
+    }
+  ]
+
+  const worksheet = XLSX.utils.json_to_sheet(templateData)
+  worksheet['!cols'] = [
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 25 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 16 },
+    { wch: 25 }
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Template')
+  XLSX.writeFile(workbook, 'evaluations_template.xlsx')
+}
+
+const exportToExcel = () => {
+  if (filteredEvaluations.value.length === 0) {
+    Swal.fire({
+      title: 'ไม่มีข้อมูล',
+      text: 'ไม่มีข้อมูลให้ส่งออก',
+      icon: 'warning',
+      customClass: {
+        popup: '!p-3 !max-w-md',
+        title: '!text-base',
+        htmlContainer: '!text-xs',
+        confirmButton: '!px-3 !py-1.5 !text-xs',
+        icon: '!scale-75'
+      }
+    })
+    return
+  }
+
+  const rows = filteredEvaluations.value.map(r => ({
+    'รหัสพนักงาน': r.employee_code || '',
+    'รหัสล้านช้าง': r.id_lxml || '',
+    'ชื่อ-นามสกุล': r.full_name || '',
+    'ตำแหน่ง': r.position || '',
+    'แผนก': r.department || '',
+    'วันที่ประเมิน': r.evaluation_date || '',
+    'ประเภทประเมิน': r.evaluation_type || ''
+  }))
+
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 25 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 16 },
+    { wch: 25 }
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Evaluations')
+  const dateStr = new Date().toISOString().split('T')[0]
+  XLSX.writeFile(workbook, `evaluations_${dateStr}.xlsx`)
+}
+
+const importFromExcel = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    ;(async () => {
+      try {
+        const data = new Uint8Array(e.target.result)
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet)
+
+        if (jsonData.length === 0) {
+          Swal.fire({
+            title: 'ข้อผิดพลาด',
+            text: 'ไม่พบข้อมูลในไฟล์ Excel',
+            icon: 'error',
+            customClass: {
+              popup: '!p-3 !max-w-md',
+              title: '!text-base',
+              htmlContainer: '!text-xs',
+              confirmButton: '!px-3 !py-1.5 !text-xs',
+              icon: '!scale-75'
+            }
+          })
+          return
+        }
+
+        const getValue = (row, keys) => {
+          for (const k of keys) {
+            const v = row?.[k]
+            if (v === 0) return 0
+            if (v !== undefined && v !== null && String(v).trim() !== '') return v
+          }
+          return ''
+        }
+
+        const getEmployeeFullName = (emp) => {
+          if (!emp) return ''
+          if (emp.fullname) return emp.fullname
+          return `${emp.firstname || ''} ${emp.lastname || ''}`.trim()
+        }
+
+        const findEmployee = (employeeCode, idLxml) =>
+          employees.value.find(emp => (employeeCode && emp.employee_code === employeeCode) || (idLxml && emp.id_lxml === idLxml))
+
+        const toInsert = []
+        const errors = []
+        const duplicates = []
+        const seen = new Set()
+
+        jsonData.forEach((row, idx) => {
+          const rowNo = idx + 2
+          const rawEmployeeCode = String(getValue(row, ['รหัสพนักงาน', 'รหัส TDL', 'employee_code', 'id_tdl'])).trim()
+          const rawIdLxml = String(getValue(row, ['รหัสล้านช้าง', 'id_lxml', 'employee_id'])).trim()
+          const rawFullName = String(getValue(row, ['ชื่อ-นามสกุล', 'fullname', 'full_name'])).trim()
+          const rawPosition = String(getValue(row, ['ตำแหน่ง', 'position'])).trim()
+          const rawDepartment = String(getValue(row, ['แผนก', 'department'])).trim()
+          const rawEvaluationDate = getValue(row, ['วันที่ประเมิน', 'evaluation_date'])
+          const rawEvaluationType = String(getValue(row, ['ประเภทประเมิน', 'evaluation_type'])).trim()
+
+          const employee = findEmployee(rawEmployeeCode, rawIdLxml)
+          const employeeCode = rawEmployeeCode || employee?.employee_code || ''
+          const idLxml = rawIdLxml || employee?.id_lxml || ''
+          const fullName = rawFullName || getEmployeeFullName(employee)
+          const position = rawPosition || employee?.position || ''
+          const department = rawDepartment || employee?.department || ''
+          const evaluationDate = normalizeExcelDateToISO(rawEvaluationDate)
+
+          if (!employeeCode) {
+            errors.push(`แถว ${rowNo}: ไม่พบ "รหัสพนักงาน" หรือจับคู่พนักงานไม่ได้`)
+            return
+          }
+          if (!evaluationDate) {
+            errors.push(`แถว ${rowNo}: รูปแบบ "วันที่ประเมิน" ไม่ถูกต้อง`)
+            return
+          }
+          if (!rawEvaluationType) {
+            errors.push(`แถว ${rowNo}: กรุณาระบุ "ประเภทประเมิน"`)
+            return
+          }
+
+          const key = `${employeeCode}__${evaluationDate}`
+          if (seen.has(key)) {
+            duplicates.push(`แถว ${rowNo}: ข้อมูลซ้ำในไฟล์ (รหัส ${employeeCode}, วันที่ ${evaluationDate})`)
+            return
+          }
+
+          const hasExisting = evaluations.value.some(r => r.employee_code === employeeCode && r.evaluation_date === evaluationDate)
+          if (hasExisting) {
+            duplicates.push(`แถว ${rowNo}: ข้อมูลซ้ำในระบบ (รหัส ${employeeCode}, วันที่ ${evaluationDate})`)
+            return
+          }
+
+          seen.add(key)
+          toInsert.push({
+            employee_code: employeeCode,
+            id_lxml: idLxml,
+            full_name: fullName,
+            position,
+            department,
+            evaluation_date: evaluationDate,
+            evaluation_type: rawEvaluationType,
+            created_by: auth.user?.fullname || 'Unknown'
+          })
+        })
+
+        if (errors.length > 0) {
+          const html = `<div style="text-align:left">${errors.slice(0, 12).map(e2 => `<div>• ${e2}</div>`).join('')}${errors.length > 12 ? `<div>…และอีก ${errors.length - 12} รายการ</div>` : ''}</div>`
+          Swal.fire({
+            title: 'นำเข้าไม่สำเร็จ',
+            html,
+            icon: 'error',
+            customClass: {
+              popup: '!p-3 !max-w-md',
+              title: '!text-base',
+              htmlContainer: '!text-xs',
+              confirmButton: '!px-3 !py-1.5 !text-xs',
+              icon: '!scale-75'
+            }
+          })
+          return
+        }
+
+        if (toInsert.length === 0) {
+          Swal.fire({
+            title: 'ไม่มีรายการนำเข้า',
+            text: duplicates.length > 0 ? 'ไฟล์มีแต่ข้อมูลซ้ำกับระบบหรือซ้ำกันเอง' : 'ไม่พบข้อมูลที่นำเข้าได้',
+            icon: 'warning',
+            customClass: {
+              popup: '!p-3 !max-w-md',
+              title: '!text-base',
+              htmlContainer: '!text-xs',
+              confirmButton: '!px-3 !py-1.5 !text-xs',
+              icon: '!scale-75'
+            }
+          })
+          return
+        }
+
+        Swal.fire({
+          title: 'กำลังนำเข้า...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading(),
+          customClass: {
+            popup: '!p-3 !max-w-md',
+            title: '!text-base',
+            htmlContainer: '!text-xs',
+            confirmButton: '!px-3 !py-1.5 !text-xs',
+            icon: '!scale-75'
+          }
+        })
+
+        const { error } = await supabaseInternal
+          .from('evaluations')
+          .insert(toInsert)
+
+        if (error) throw error
+
+        await fetchEvaluations()
+
+        const dupText = duplicates.length > 0 ? ` (ข้ามข้อมูลซ้ำ ${duplicates.length} แถว)` : ''
+        Swal.fire({
+          title: 'นำเข้าสำเร็จ!',
+          text: `นำเข้าข้อมูล ${toInsert.length} รายการ${dupText}`,
+          icon: 'success',
+          customClass: {
+            popup: '!p-3 !max-w-md',
+            title: '!text-base',
+            htmlContainer: '!text-xs',
+            confirmButton: '!px-3 !py-1.5 !text-xs',
+            icon: '!scale-75'
+          }
+        })
+      } catch (error) {
+        console.error('Error importing Excel:', error)
+        Swal.fire({
+          title: 'ข้อผิดพลาด',
+          text: 'เกิดข้อผิดพลาดในการนำเข้าไฟล์ Excel',
+          icon: 'error',
+          customClass: {
+            popup: '!p-3 !max-w-md',
+            title: '!text-base',
+            htmlContainer: '!text-xs',
+            confirmButton: '!px-3 !py-1.5 !text-xs',
+            icon: '!scale-75'
+          }
+        })
+      } finally {
+        event.target.value = ''
+      }
+    })()
+  }
+
+  reader.readAsArrayBuffer(file)
 }
 
 const openAddSidebar = () => {
@@ -470,6 +789,45 @@ onUnmounted(() => {
           <XMarkIcon class="h-5 w-5" />
           ล้างตัวกรอง
         </button>
+        <button
+          @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm"
+        >
+          <ArrowDownTrayIcon class="h-5 w-5" />
+          Export
+        </button>
+        <div class="relative" ref="dumpFileDropdownRef">
+          <button
+            @click="showDumpFileDropdown = !showDumpFileDropdown"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm"
+          >
+            <DocumentIcon class="h-5 w-5" />
+            Dump File
+          </button>
+          <div v-if="showDumpFileDropdown" class="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden z-10">
+            <button
+              @click="(e) => { e.stopPropagation(); downloadExcelTemplate(); showDumpFileDropdown = false; }"
+              class="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+            >
+              <ArrowDownTrayIcon class="h-4 w-4 text-red-600" />
+              Template
+            </button>
+            <button
+              @click="(e) => { e.stopPropagation(); fileInputRef?.click(); showDumpFileDropdown = false; }"
+              class="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+            >
+              <ArrowUpTrayIcon class="h-4 w-4 text-green-600" />
+              Import
+            </button>
+          </div>
+        </div>
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept=".xlsx, .xls, .csv"
+          style="display: none"
+          @change="importFromExcel"
+        />
         <button
           @click="openAddSidebar"
           class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition-all shadow-sm"
