@@ -2223,7 +2223,7 @@ watch(() => formData.value.id_tdl, (newVal) => {
                   <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                     {{ record.employee_id || '-' }}
                   </td>
-                  <td class="px-3 py-4 whitespace-nowrap">
+                  <td class="px-3 py-4 break-words">
                     <div class="text-sm font-bold text-gray-900 dark:text-white">
                       {{ record.first_name }} {{ record.last_name }}
                     </div>
@@ -2231,10 +2231,10 @@ watch(() => formData.value.id_tdl, (newVal) => {
                   <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                     {{ record.gender || '-' }}
                   </td>
-                  <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                  <td class="px-3 py-4 break-words align-top text-sm text-gray-600 dark:text-gray-400 max-w-[180px]">
                     {{ record.position || '-' }}
                   </td>
-                  <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                  <td class="px-3 py-4 break-words align-top text-sm text-gray-600 dark:text-gray-400 max-w-[160px]">
                     {{ record.department || '-' }}
                   </td>
                   <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
@@ -2276,11 +2276,11 @@ watch(() => formData.value.id_tdl, (newVal) => {
                       </button>
                     </div>
                   </td>
-                  <td class="px-3 py-4 whitespace-nowrap">
+                  <td class="px-3 py-4 break-words align-top max-w-[140px]">
                     <div class="text-sm font-medium text-gray-900 dark:text-white">
                       {{ record.created_by || '-' }}
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 whitespace-nowrap">
                       {{ record.created_at ? formatDate(record.created_at) : '-' }}
                     </div>
                   </td>
@@ -2343,11 +2343,11 @@ watch(() => formData.value.id_tdl, (newVal) => {
                               :key="course.record_id || index"
                               class="bg-white dark:bg-gray-950 hover:bg-gray-50/50 dark:hover:bg-gray-900/50 transition-colors"
                             >
-                              <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">{{ course.course_name || '-' }}</td>
-                              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                              <td class="px-4 py-3 break-words align-top text-sm text-gray-900 dark:text-white max-w-[240px]">{{ course.course_name || '-' }}</td>
+                              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                 {{ formatDate(course.training_date) }}
                               </td>
-                              <td class="px-4 py-3">
+                              <td class="px-4 py-3 whitespace-nowrap">
                                 <span :class="[
                                   'text-xs font-bold uppercase',
                                   course.status === 'สำเร็จ' || course.status === 'ผ่านแล้ว' ? 'text-green-600 dark:text-green-400' :
@@ -2356,10 +2356,10 @@ watch(() => formData.value.id_tdl, (newVal) => {
                                   {{ course.status === 'กำลังดำเนินการ' ? 'ยังไม่ผ่าน' : (course.status || 'ยังไม่ผ่าน') }}
                                 </span>
                               </td>
-                              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                 {{ course.re_date ? formatDate(course.re_date) : '-' }}
                               </td>
-                              <td class="px-4 py-3">
+                              <td class="px-4 py-3 whitespace-nowrap">
                                 <span :class="[
                                   'text-xs font-bold uppercase',
                                   course.status_re === 'Reแล้ว' ? 'text-blue-600 dark:text-blue-400' :
