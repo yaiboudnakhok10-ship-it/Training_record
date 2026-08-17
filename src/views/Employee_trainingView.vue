@@ -341,10 +341,24 @@ const fetchEmployees = async () => {
 }
 
 // ฟังก์ชันเติมข้อมูลพนักงานอัตโนมัติเมื่อเลือกรหัส TDL หรือ id_lxml
+const getNationalityFromIdTdl = (code) => {
+  if (!code) return ''
+  const firstChar = code.trim().charAt(0).toUpperCase()
+  if (/[A-Z]/.test(firstChar)) {
+    return 'Laos'
+  } else if (/[0-9]/.test(firstChar)) {
+    return 'Thai'
+  }
+  return ''
+}
+
 const fillEmployeeData = (code) => {
   const employee = employees.value.find(emp => emp.employee_code === code || emp.id_lxml === code)
   console.log('fillEmployeeData called with code:', code)
   console.log('Found employee:', employee)
+  
+  const autoNationality = getNationalityFromIdTdl(code)
+  
   if (employee) {
     // เติมค่า fullNameInput
     if (employee.fullname) {
@@ -378,7 +392,7 @@ const fillEmployeeData = (code) => {
     // ใช้เพศจาก pn ถ้ามี ถ้าไม่มีใช้จาก gender field
     formData.value.gender = genderFromPn || employee.gender || ''
     
-    formData.value.nationality = employee.nationality || ''
+    formData.value.nationality = employee.nationality || autoNationality
     
     console.log('Employee status from DB:', employee.status)
     
@@ -387,6 +401,10 @@ const fillEmployeeData = (code) => {
     
     console.log('Set formData.status to:', formData.value.status)
     console.log('Gender determined from pn:', genderFromPn, 'Employee pn:', employee.pn)
+  } else {
+    if (autoNationality) {
+      formData.value.nationality = autoNationality
+    }
   }
 }
 
