@@ -19,14 +19,13 @@ import EmployeeOneView from '../views/employee_one.vue'
 import AccidentRetrainingRecordsView from '../views/accident_retraining_recordsView.vue'
 import ReView from '../views/ReView.vue'
 
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/login',
       name: 'login',
-      component: LoginView
+      component: LoginView,
     },
     {
       path: '/',
@@ -35,110 +34,107 @@ const router = createRouter({
         {
           path: '',
           name: 'dashboard',
-          component: DashboardView
+          component: DashboardView,
         },
         {
           path: 'employee_training_records',
           name: 'employee_training_records',
-          component: EmployeeTrainingRecordsView
+          component: EmployeeTrainingRecordsView,
         },
         {
           path: 'training-record',
           name: 'training-record',
-          component: EvaluationsView
+          component: EvaluationsView,
         },
         {
           path: 'employee-courses',
           name: 'employee-courses',
-          component: EvaluationTopicsView
+          component: EvaluationTopicsView,
         },
         {
           path: 'employees',
           name: 'employee-info',
-          component: EmployeeView
+          component: EmployeeView,
         },
         {
           path: 'courses',
           name: 'course-list',
-          component: CoursesView
+          component: CoursesView,
         },
         {
           path: 'register-course',
           name: 'register-course',
-          component: EmployeeTrainingView
+          component: EmployeeTrainingView,
         },
         {
-              path: 'employee-training',
-              name: 'employee-training',
-              component: AccidentRetrainingRecordsView
-            },
+          path: 'employee-training',
+          name: 'employee-training',
+          component: AccidentRetrainingRecordsView,
+        },
         {
           path: 'search',
           name: 'search',
-          component: Status_cardView
+          component: Status_cardView,
         },
         {
           path: 'register-employee',
           name: 'register-employee',
-          component: Status_coursesView
+          component: Status_coursesView,
         },
         {
           path: 'system-users',
           name: 'system-users',
-          component: UserSystemView
+          component: UserSystemView,
         },
         {
           path: 'usage-logs',
           name: 'usage-logs',
-          component: LogView
+          component: LogView,
         },
         {
           path: 'employee-course-registration',
           name: 'employee-course-registration',
-          component: EmployeeCourseRegistrationView
+          component: EmployeeCourseRegistrationView,
         },
         {
           path: 'registration-view',
           name: 'registration-view',
-          component: RegistrationView
+          component: RegistrationView,
         },
         {
           path: 'health-check',
           name: 'health-check',
-          component: HealthCheckView
+          component: HealthCheckView,
         },
         {
           path: 'employee-one',
           name: 'employee-one',
-          component: EmployeeOneView
+          component: EmployeeOneView,
         },
         {
           path: 'review',
           name: 'review',
-          component: ReView
+          component: ReView,
         },
-      ]
-    }
-  ]
+      ],
+    },
+  ],
 })
 
 // Navigation guard สำหรับตรวจสอบการล็อกอิน
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   // ตรวจสอบว่ามีข้อมูลผู้ใช้ใน localStorage หรือไม่
   const user = localStorage.getItem('auth_user')
-  
+
   // ถ้าไปที่หน้า login และมีข้อมูลผู้ใช้แล้ว ให้กลับไปหน้าแรก
   if (to.name === 'login' && user) {
-    next('/')
+    return '/'
   }
   // ถ้าไปที่หน้าอื่นและไม่มีข้อมูลผู้ใช้ ให้ไปหน้า login
   else if (to.name !== 'login' && !user) {
-    next('/login')
+    return '/login'
   }
   // ถ้าไม่ใช่กรณีข้างต้น ให้ดำเนินการต่อ
-  else {
-    next()
-  }
 })
 
 export default router
